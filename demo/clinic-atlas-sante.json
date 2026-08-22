@@ -1,0 +1,23 @@
+{
+  "mode": "synthetic-demo",
+  "clinic": {
+    "name": "Cabinet Atlas Santé",
+    "slug": "atlas-sante-demo",
+    "specialty": "Médecine générale",
+    "phone": "+212522000900",
+    "email": "contact@atlas-sante.example",
+    "website": "https://atlas-sante.example",
+    "city": "Casablanca",
+    "address": "Maarif, Casablanca",
+    "inpeNumber": "DEMO-INPE-001",
+    "logoUrl": null,
+    "brandPrimaryColor": "#123B5D",
+    "brandAccentColor": "#18A999",
+    "timezone": "Africa/Casablanca"
+  },
+  "notes": [
+    "All people, phone numbers, identifiers and clinical records in this preset are synthetic demo data.",
+    "Do not use this preset as real patient data.",
+    "ClinicOS medical, financial, RBAC and tenant-isolation workflows remain unchanged."
+  ]
+}
