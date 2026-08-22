@@ -132,10 +132,16 @@ export default async function AgendaPage({
                 {can(ctx.role, "agenda:write") && appointment.status === AppointmentStatus.SCHEDULED ? (
                   <TransitionButton appointmentId={appointment.id} status={AppointmentStatus.CONFIRMED}>Confirmer</TransitionButton>
                 ) : null}
-                {can(ctx.role, "queue:manage") && [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED].includes(appointment.status) ? (
+                {can(ctx.role, "queue:manage") && (
+                  appointment.status === AppointmentStatus.SCHEDULED ||
+                  appointment.status === AppointmentStatus.CONFIRMED
+                ) ? (
                   <TransitionButton appointmentId={appointment.id} status={AppointmentStatus.WAITING_ROOM} emphasis>Arrivé</TransitionButton>
                 ) : null}
-                {can(ctx.role, "agenda:write") && [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED].includes(appointment.status) ? (
+                {can(ctx.role, "agenda:write") && (
+                  appointment.status === AppointmentStatus.SCHEDULED ||
+                  appointment.status === AppointmentStatus.CONFIRMED
+                ) ? (
                   <>
                     <TransitionButton appointmentId={appointment.id} status={AppointmentStatus.NO_SHOW}>Absent</TransitionButton>
                     <TransitionButton appointmentId={appointment.id} status={AppointmentStatus.CANCELLED}>Annuler</TransitionButton>
