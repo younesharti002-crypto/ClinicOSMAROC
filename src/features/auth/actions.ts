@@ -12,6 +12,11 @@ const loginSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
+// Valid bcrypt hash used only to keep the password-check path comparable when
+// an account is absent/inactive. It is not a credential for any ClinicOS user.
+const DUMMY_PASSWORD_HASH =
+  "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
 export type LoginState = {
   error?: string;
 };
@@ -40,13 +45,12 @@ export async function loginAction(
     },
   });
 
-  if (!user?.isActive) {
-    return { error: "Identifiants invalides." };
-  }
+  const validPassword = await bcrypt.compare(
+    parsed.data.password,
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+  );
 
-  const validPassword = await bcrypt.compare(parsed.data.password, user.passwordHash);
-
-  if (!validPassword) {
+  if (!user?.isActive || !validPassword) {
     return { error: "Identifiants invalides." };
   }
 
