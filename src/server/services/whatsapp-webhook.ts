@@ -180,9 +180,8 @@ async function applyAppointmentReply(
       }
       if (
         input.parsed.action === "CANCEL" &&
-        [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED].includes(
-          appointment.status,
-        )
+        (appointment.status === AppointmentStatus.SCHEDULED ||
+          appointment.status === AppointmentStatus.CONFIRMED)
       ) {
         targetStatus = AppointmentStatus.CANCELLED;
       }
