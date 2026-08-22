@@ -1,4 +1,5 @@
 import { AppointmentStatus } from "@prisma/client";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
@@ -41,12 +42,17 @@ export default async function ConsultationPage({
                 <p className="text-sm text-slate-500">Dr {consultation.doctor.fullName}</p>
                 <p className="text-sm font-medium">{consultation.appointment?.type ?? "Consultation"} · {consultation.appointment?.status ?? "SANS RDV"}</p>
               </div>
-              <span className={isActive
-                ? "rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900"
-                : "rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-900"}
-              >
-                {isActive ? "EN CONSULTATION" : "TERMINÉE"}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={`/consultations/${consultation.id}/prescription`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold">
+                  Ordonnance
+                </Link>
+                <span className={isActive
+                  ? "rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900"
+                  : "rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-900"}
+                >
+                  {isActive ? "EN CONSULTATION" : "TERMINÉE"}
+                </span>
+              </div>
             </div>
 
             {isActive ? (

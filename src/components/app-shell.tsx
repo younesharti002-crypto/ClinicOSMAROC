@@ -5,10 +5,10 @@ import { can } from "@/lib/auth/permissions";
 import { logoutAction } from "@/features/auth/actions";
 
 const navigation = [
-  ["Réception", "/reception"],
-  ["Patients", "/patients"],
-  ["Agenda", "/agenda"],
-  ["File d’attente", "/queue"],
+  { label: "Réception", href: "/reception" },
+  { label: "Patients", href: "/patients" },
+  { label: "Agenda", href: "/agenda" },
+  { label: "File d’attente", href: "/queue" },
 ] as const;
 
 export function AppShell({
@@ -20,9 +20,17 @@ export function AppShell({
   title: string;
   children: React.ReactNode;
 }) {
-  const links = can(user.role, "consultation:write")
-    ? [["Médecin", "/doctor"] as const, ...navigation]
-    : navigation;
+  const links: Array<{ label: string; href: string }> = [];
+
+  if (can(user.role, "consultation:write")) {
+    links.push({ label: "Médecin", href: "/doctor" });
+  }
+
+  links.push(...navigation);
+
+  if (can(user.role, "invoice:read")) {
+    links.push({ label: "Facturation", href: "/billing" });
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -35,7 +43,7 @@ export function AppShell({
             <p className="text-xs text-slate-500">{user.fullName} · {user.role}</p>
           </div>
           <nav className="flex flex-wrap gap-2">
-            {links.map(([label, href]) => (
+            {links.map(({ label, href }) => (
               <Link
                 key={href}
                 href={href}
