@@ -74,16 +74,20 @@ enum WhatsAppStatus {
 }
 
 model Clinic {
-  id              String   @id @default(uuid())
-  name            String
-  slug            String   @unique
-  phone           String
-  address         String
-  city            String   @default("Casablanca")
-  inpeNumber      String?
-  timezone        String   @default("Africa/Casablanca")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                       String   @id @default(uuid())
+  name                     String
+  slug                     String   @unique
+  phone                    String
+  address                  String
+  city                     String   @default("Casablanca")
+  inpeNumber               String?
+  timezone                 String   @default("Africa/Casablanca")
+  whatsappEnabled          Boolean  @default(false)
+  whatsappPhoneNumberId    String?  @unique
+  whatsappReminderTemplate String?
+  whatsappLanguageCode     String   @default("fr")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   users           User[]
   patients        Patient[]
@@ -334,6 +338,7 @@ model WhatsAppEvent {
   updatedAt         DateTime          @updatedAt
 
   @@unique([clinicId, providerMessageId])
+  @@unique([clinicId, appointmentId, eventType])
   @@index([clinicId, appointmentId])
   @@index([clinicId, createdAt])
   @@map("whatsapp_events")
