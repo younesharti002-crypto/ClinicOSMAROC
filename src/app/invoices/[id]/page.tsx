@@ -41,8 +41,10 @@ export default async function InvoicePage({
   }
 
   const paid = invoice.payments
-    .filter((payment) =>
-      [PaymentStatus.FINALIZED, PaymentStatus.ADJUSTMENT].includes(payment.status),
+    .filter(
+      (payment) =>
+        payment.status === PaymentStatus.FINALIZED ||
+        payment.status === PaymentStatus.ADJUSTMENT,
     )
     .reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0));
   const balance = invoice.totalAmount.sub(paid);
