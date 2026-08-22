@@ -40,6 +40,14 @@ export function AppShell({
     links.push({ label: "Analytics", href: "/analytics" });
   }
 
+  if (can(user.role, "staff:manage")) {
+    links.push({ label: "Équipe", href: "/staff" });
+  }
+
+  if (can(user.role, "clinic:settings:manage")) {
+    links.push({ label: "Paramètres", href: "/settings/clinic" });
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
