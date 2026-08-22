@@ -19,6 +19,12 @@ export type ClinicSettingsInput = {
   address: string;
   city: string;
   inpeNumber: string | null;
+  specialty: string | null;
+  email: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  brandPrimaryColor: string;
+  brandAccentColor: string;
   timezone: "Africa/Casablanca";
   whatsappEnabled: boolean;
   whatsappPhoneNumberId: string | null;
@@ -35,6 +41,28 @@ const staffSelect = {
   inpeNumber: true,
   isActive: true,
   createdAt: true,
+  updatedAt: true,
+} as const;
+
+const clinicSettingsSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  phone: true,
+  address: true,
+  city: true,
+  inpeNumber: true,
+  specialty: true,
+  email: true,
+  website: true,
+  logoUrl: true,
+  brandPrimaryColor: true,
+  brandAccentColor: true,
+  timezone: true,
+  whatsappEnabled: true,
+  whatsappPhoneNumberId: true,
+  whatsappReminderTemplate: true,
+  whatsappLanguageCode: true,
   updatedAt: true,
 } as const;
 
@@ -155,21 +183,7 @@ export async function getClinicSettings(db: PrismaClient, ctx: AuthContext) {
 
   return db.clinic.findUnique({
     where: { id: ctx.clinicId },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      phone: true,
-      address: true,
-      city: true,
-      inpeNumber: true,
-      timezone: true,
-      whatsappEnabled: true,
-      whatsappPhoneNumberId: true,
-      whatsappReminderTemplate: true,
-      whatsappLanguageCode: true,
-      updatedAt: true,
-    },
+    select: clinicSettingsSelect,
   });
 }
 
@@ -199,21 +213,7 @@ export async function updateClinicSettings(
     const clinic = await tx.clinic.update({
       where: { id: ctx.clinicId },
       data: input,
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        phone: true,
-        address: true,
-        city: true,
-        inpeNumber: true,
-        timezone: true,
-        whatsappEnabled: true,
-        whatsappPhoneNumberId: true,
-        whatsappReminderTemplate: true,
-        whatsappLanguageCode: true,
-        updatedAt: true,
-      },
+      select: clinicSettingsSelect,
     });
 
     await tx.auditLog.create({
@@ -230,6 +230,12 @@ export async function updateClinicSettings(
             "address",
             "city",
             "inpeNumber",
+            "specialty",
+            "email",
+            "website",
+            "logoUrl",
+            "brandPrimaryColor",
+            "brandAccentColor",
             "timezone",
             "whatsappEnabled",
             "whatsappPhoneNumberId",

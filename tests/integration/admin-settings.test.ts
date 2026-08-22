@@ -10,6 +10,7 @@ import {
   setStaffActive,
   updateClinicSettings,
 } from "@/server/repositories/admin";
+import { getClinicBranding } from "@/server/repositories/branding";
 
 const db = new PrismaClient();
 
@@ -36,6 +37,9 @@ async function fixture() {
         phone: "+212522000001",
         address: "Casablanca",
         city: "Casablanca",
+        specialty: "Cardiologie",
+        brandPrimaryColor: "#123456",
+        brandAccentColor: "#ABCDEF",
       },
     }),
     db.clinic.create({
@@ -45,6 +49,9 @@ async function fixture() {
         phone: "+212537000001",
         address: "Rabat",
         city: "Rabat",
+        specialty: "Dermatologie",
+        brandPrimaryColor: "#654321",
+        brandAccentColor: "#FEDCBA",
       },
     }),
   ]);
@@ -177,6 +184,12 @@ describe("release admin settings", () => {
       address: "Maarif, Casablanca",
       city: "Casablanca",
       inpeNumber: "CLINIC-INPE-A",
+      specialty: "Cardiologie interventionnelle",
+      email: "contact@clinic-a.test",
+      website: "https://clinic-a.test/",
+      logoUrl: "https://clinic-a.test/logo.png",
+      brandPrimaryColor: "#102030",
+      brandAccentColor: "#405060",
       timezone: "Africa/Casablanca",
       whatsappEnabled: false,
       whatsappPhoneNumberId: null,
@@ -186,9 +199,12 @@ describe("release admin settings", () => {
 
     expect(updated.id).toBe(clinicA.id);
     expect(updated.name).toBe("Clinic A Updated");
+    expect(updated.specialty).toBe("Cardiologie interventionnelle");
+    expect(updated.brandPrimaryColor).toBe("#102030");
 
     const untouchedB = await db.clinic.findUnique({ where: { id: clinicB.id } });
     expect(untouchedB?.name).toBe("Admin Clinic B");
+    expect(untouchedB?.specialty).toBe("Dermatologie");
 
     const audit = await db.auditLog.findFirst({
       where: {
@@ -198,6 +214,21 @@ describe("release admin settings", () => {
       },
     });
     expect(audit).not.toBeNull();
+  });
+
+  it("returns branding only for the authenticated tenant", async () => {
+    const { adminCtx } = await fixture();
+    const branding = await getClinicBranding(db, adminCtx);
+
+    expect(branding).toEqual(
+      expect.objectContaining({
+        name: "Admin Clinic A",
+        specialty: "Cardiologie",
+        brandPrimaryColor: "#123456",
+        brandAccentColor: "#ABCDEF",
+      }),
+    );
+    expect(branding?.name).not.toBe("Admin Clinic B");
   });
 
   it("requires non-secret WhatsApp routing config before enabling reminders", async () => {
@@ -210,6 +241,12 @@ describe("release admin settings", () => {
         address: "Casablanca",
         city: "Casablanca",
         inpeNumber: null,
+        specialty: null,
+        email: null,
+        website: null,
+        logoUrl: null,
+        brandPrimaryColor: "#0F172A",
+        brandAccentColor: "#0F766E",
         timezone: "Africa/Casablanca",
         whatsappEnabled: true,
         whatsappPhoneNumberId: null,

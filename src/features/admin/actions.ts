@@ -23,12 +23,29 @@ const staffSchema = z.object({
   inpeNumber: z.string().max(80).optional().default(""),
 });
 
+const hexColor = z
+  .string()
+  .regex(/^#[0-9A-Fa-f]{6}$/)
+  .transform((value) => value.toUpperCase());
+
 const clinicSettingsSchema = z.object({
   name: z.string().trim().min(2).max(160),
   phone: z.string().min(5).max(40),
   address: z.string().trim().min(3).max(240),
   city: z.string().trim().min(2).max(120),
   inpeNumber: z.string().max(80).optional().default(""),
+  specialty: z.string().trim().max(160).optional().default(""),
+  email: z
+    .string()
+    .trim()
+    .max(160)
+    .optional()
+    .default("")
+    .refine((value) => value === "" || z.string().email().safeParse(value).success),
+  website: z.string().trim().max(240).optional().default(""),
+  logoUrl: z.string().trim().max(500).optional().default(""),
+  brandPrimaryColor: hexColor,
+  brandAccentColor: hexColor,
   timezone: z.literal("Africa/Casablanca"),
   whatsappEnabled: z.boolean(),
   whatsappPhoneNumberId: z.string().max(80).optional().default(""),
@@ -39,6 +56,18 @@ const clinicSettingsSchema = z.object({
 function redirectWithMessage(path: string, kind: "success" | "error", message: string): never {
   const params = new URLSearchParams({ [kind]: message });
   redirect(`${path}?${params.toString()}`);
+}
+
+function normalizeOptionalUrl(value: string): string | null {
+  const raw = optionalText(value);
+  if (!raw) return null;
+
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  const url = new URL(candidate);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("URL invalide");
+  }
+  return url.toString();
 }
 
 export async function createStaffAction(formData: FormData): Promise<never> {
@@ -121,6 +150,12 @@ export async function updateClinicSettingsAction(formData: FormData): Promise<ne
     address: formData.get("address"),
     city: formData.get("city"),
     inpeNumber: formData.get("inpeNumber") ?? "",
+    specialty: formData.get("specialty") ?? "",
+    email: formData.get("email") ?? "",
+    website: formData.get("website") ?? "",
+    logoUrl: formData.get("logoUrl") ?? "",
+    brandPrimaryColor: formData.get("brandPrimaryColor"),
+    brandAccentColor: formData.get("brandAccentColor"),
     timezone: formData.get("timezone"),
     whatsappEnabled: formData.get("whatsappEnabled") === "on",
     whatsappPhoneNumberId: formData.get("whatsappPhoneNumberId") ?? "",
@@ -133,10 +168,18 @@ export async function updateClinicSettingsAction(formData: FormData): Promise<ne
   }
 
   let phone: string;
+  let website: string | null;
+  let logoUrl: string | null;
   try {
     phone = normalizeMoroccanPhone(parsed.data.phone);
+    website = normalizeOptionalUrl(parsed.data.website);
+    logoUrl = normalizeOptionalUrl(parsed.data.logoUrl);
   } catch {
-    redirectWithMessage("/settings/clinic", "error", "Numéro de téléphone marocain invalide");
+    redirectWithMessage(
+      "/settings/clinic",
+      "error",
+      "Vérifiez le téléphone, le site web et l’URL du logo",
+    );
   }
 
   try {
@@ -146,6 +189,12 @@ export async function updateClinicSettingsAction(formData: FormData): Promise<ne
       address: parsed.data.address,
       city: parsed.data.city,
       inpeNumber: optionalText(parsed.data.inpeNumber),
+      specialty: optionalText(parsed.data.specialty),
+      email: optionalText(parsed.data.email)?.toLowerCase() ?? null,
+      website,
+      logoUrl,
+      brandPrimaryColor: parsed.data.brandPrimaryColor,
+      brandAccentColor: parsed.data.brandAccentColor,
       timezone: parsed.data.timezone,
       whatsappEnabled: parsed.data.whatsappEnabled,
       whatsappPhoneNumberId: optionalText(parsed.data.whatsappPhoneNumberId),
@@ -161,5 +210,8 @@ export async function updateClinicSettingsAction(formData: FormData): Promise<ne
   }
 
   revalidatePath("/settings/clinic");
+  revalidatePath("/dashboard");
+  revalidatePath("/reception");
+  revalidatePath("/doctor");
   redirectWithMessage("/settings/clinic", "success", "Paramètres enregistrés");
 }

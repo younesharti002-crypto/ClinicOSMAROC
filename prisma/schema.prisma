@@ -81,6 +81,12 @@ model Clinic {
   address                  String
   city                     String   @default("Casablanca")
   inpeNumber               String?
+  specialty                String?
+  email                    String?
+  website                  String?
+  logoUrl                  String?
+  brandPrimaryColor        String   @default("#0F172A")
+  brandAccentColor         String   @default("#0F766E")
   timezone                 String   @default("Africa/Casablanca")
   whatsappEnabled          Boolean  @default(false)
   whatsappPhoneNumberId    String?  @unique
@@ -117,11 +123,11 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  appointments    Appointment[]
-  consultations   Consultation[]
+  appointments     Appointment[]
+  consultations    Consultation[]
   paymentsReceived Payment[]     @relation("PaymentReceivedBy")
-  cashClosings    CashClosing[]   @relation("CashClosingClosedBy")
-  auditLogs       AuditLog[]      @relation("AuditActor")
+  cashClosings     CashClosing[]  @relation("CashClosingClosedBy")
+  auditLogs        AuditLog[]     @relation("AuditActor")
 
   @@index([clinicId])
   @@map("users")
