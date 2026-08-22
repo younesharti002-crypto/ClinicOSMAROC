@@ -22,6 +22,7 @@
     "prisma:push": "prisma db push",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "db:seed": "node prisma/seed.mjs",
+    "demo:seed": "node prisma/seed-demo.mjs",
     "bootstrap:admin": "node prisma/bootstrap-admin.mjs"
   },
   "dependencies": {
