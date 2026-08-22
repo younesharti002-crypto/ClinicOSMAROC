@@ -2,6 +2,7 @@ import { AppointmentStatus, AppointmentType } from "@prisma/client";
 
 import { AppShell } from "@/components/app-shell";
 import { transitionAppointmentAction } from "@/features/appointments/actions";
+import { startConsultationAction } from "@/features/consultations/actions";
 import { requireCapability } from "@/lib/auth/context";
 import { can } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db";
@@ -11,12 +12,10 @@ function QueueAction({
   appointmentId,
   status,
   label,
-  primary = false,
 }: {
   appointmentId: string;
   status: AppointmentStatus;
   label: string;
-  primary?: boolean;
 }) {
   return (
     <form action={transitionAppointmentAction}>
@@ -24,9 +23,7 @@ function QueueAction({
       <button
         name="status"
         value={status}
-        className={primary
-          ? "rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white"
-          : "rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold"}
+        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold"
       >
         {label}
       </button>
@@ -68,12 +65,12 @@ export default async function QueuePage() {
 
               <div className="flex flex-wrap gap-2">
                 {can(ctx.role, "consultation:write") ? (
-                  <QueueAction
-                    appointmentId={entry.id}
-                    status={AppointmentStatus.IN_CONSULTATION}
-                    label="Démarrer consultation"
-                    primary
-                  />
+                  <form action={startConsultationAction}>
+                    <input type="hidden" name="appointmentId" value={entry.id} />
+                    <button className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white">
+                      Démarrer consultation
+                    </button>
+                  </form>
                 ) : null}
                 {can(ctx.role, "agenda:write") ? (
                   <>

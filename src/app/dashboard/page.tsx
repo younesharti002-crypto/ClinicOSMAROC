@@ -7,7 +7,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
 
   if (user.role === Role.DOCTOR) {
-    redirect("/queue");
+    redirect("/doctor");
   }
 
   redirect("/reception");
