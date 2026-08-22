@@ -8,7 +8,7 @@ function candidate(
   type: AppointmentType,
   scheduledAt: string,
   updatedAt: string,
-  status = AppointmentStatus.WAITING_ROOM,
+  status: AppointmentStatus = AppointmentStatus.WAITING_ROOM,
 ): QueueCandidate {
   return {
     id,
