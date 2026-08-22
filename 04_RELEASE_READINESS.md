@@ -53,16 +53,22 @@ Required invariants:
 
 ## 3. Production environment — required now
 
-The core application requires these deployment secrets/config values:
+The core application requires these Vercel **Production** environment values:
 
 - `DATABASE_URL`
 - `SESSION_SECRET` (minimum 32 characters; use a strong random value)
+
+ClinicOS defines a `vercel-build` wrapper. On Vercel:
+
+- when `VERCEL_ENV=production`, the build validates the two required production values and runs `prisma migrate deploy` before `next build`
+- preview/non-production builds skip production database migrations
+- production deployment fails closed if `DATABASE_URL` or a valid `SESSION_SECRET` is missing
 
 For the database:
 
 1. use a ClinicOS-only PostgreSQL/Neon database
 2. back up before production migration changes when the database contains real data
-3. run `npm run prisma:migrate:deploy`
+3. let the Vercel production build apply committed Prisma migrations, or run `npm run prisma:migrate:deploy` manually from a trusted terminal when needed
 4. do not use `prisma db push` as the production release mechanism
 5. do **not** run `npm run db:seed` against production; the seed is development/CI data only
 6. bootstrap the first real clinic and its first DOCTOR_ADMIN with `npm run bootstrap:admin`
