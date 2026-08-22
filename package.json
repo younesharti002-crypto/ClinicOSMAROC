@@ -20,7 +20,8 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "node prisma/seed.mjs"
+    "db:seed": "node prisma/seed.mjs",
+    "bootstrap:admin": "node prisma/bootstrap-admin.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
