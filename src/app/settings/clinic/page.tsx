@@ -75,6 +75,47 @@ export default async function ClinicSettingsPage({ searchParams }: PageProps) {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4">
+              <h2 className="text-lg font-semibold">Branding du modèle ClinicOS</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Ces champs personnalisent la copie pour cette clinique sans modifier les workflows médicaux, financiers ou les permissions.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="space-y-1 text-sm font-medium">
+                Spécialité
+                <input name="specialty" defaultValue={clinic.specialty ?? ""} placeholder="Ex. Cardiologie" className="w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" />
+              </label>
+              <label className="space-y-1 text-sm font-medium">
+                E-mail public
+                <input name="email" type="email" defaultValue={clinic.email ?? ""} placeholder="contact@cabinet.ma" className="w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" />
+              </label>
+              <label className="space-y-1 text-sm font-medium">
+                Site web
+                <input name="website" defaultValue={clinic.website ?? ""} placeholder="https://cabinet.ma" className="w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" />
+              </label>
+              <label className="space-y-1 text-sm font-medium">
+                URL du logo
+                <input name="logoUrl" defaultValue={clinic.logoUrl ?? ""} placeholder="https://.../logo.png" className="w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" />
+              </label>
+              <label className="space-y-2 text-sm font-medium">
+                Couleur principale
+                <div className="flex items-center gap-3">
+                  <input name="brandPrimaryColor" type="color" defaultValue={clinic.brandPrimaryColor} className="h-10 w-14 rounded border border-slate-300 bg-white p-1" />
+                  <span className="font-mono text-xs text-slate-500">{clinic.brandPrimaryColor}</span>
+                </div>
+              </label>
+              <label className="space-y-2 text-sm font-medium">
+                Couleur d’accent
+                <div className="flex items-center gap-3">
+                  <input name="brandAccentColor" type="color" defaultValue={clinic.brandAccentColor} className="h-10 w-14 rounded border border-slate-300 bg-white p-1" />
+                  <span className="font-mono text-xs text-slate-500">{clinic.brandAccentColor}</span>
+                </div>
+              </label>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4">
               <h2 className="text-lg font-semibold">WhatsApp de la clinique</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Ici on enregistre uniquement la configuration non secrète propre à cette clinique. Les tokens Meta restent dans les secrets du déploiement et ne sont jamais stockés dans la base.
