@@ -338,6 +338,7 @@ model WhatsAppEvent {
   updatedAt         DateTime          @updatedAt
 
   @@unique([clinicId, providerMessageId])
+  @@unique([clinicId, appointmentId, eventType])
   @@index([clinicId, appointmentId])
   @@index([clinicId, createdAt])
   @@map("whatsapp_events")
