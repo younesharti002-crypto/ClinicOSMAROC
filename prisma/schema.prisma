@@ -1,0 +1,340 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  DOCTOR_ADMIN
+  DOCTOR
+  SECRETARY
+}
+
+enum InsuranceType {
+  NONE
+  AMO_CNSS
+  AMO_CNOPS
+  PRIVATE_MUTUELLE
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  WAITING_ROOM
+  IN_CONSULTATION
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentType {
+  BOOKED
+  WALK_IN
+  EMERGENCY
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  VOID
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  CHEQUE
+  VIREMENT
+}
+
+enum PaymentStatus {
+  FINALIZED
+  VOIDED
+  ADJUSTMENT
+}
+
+enum WhatsAppEventType {
+  REMINDER_SENT
+  CONFIRMATION_RECEIVED
+  CANCELLATION_RECEIVED
+  DELIVERY_STATUS
+  WEBHOOK_RECEIVED
+}
+
+enum WhatsAppStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED
+}
+
+model Clinic {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  phone           String
+  address         String
+  city            String   @default("Casablanca")
+  inpeNumber      String?
+  timezone        String   @default("Africa/Casablanca")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users           User[]
+  patients        Patient[]
+  appointments    Appointment[]
+  consultations   Consultation[]
+  prescriptions   Prescription[]
+  invoices        Invoice[]
+  payments        Payment[]
+  cashClosings    CashClosing[]
+  auditLogs       AuditLog[]
+  whatsappEvents  WhatsAppEvent[]
+
+  @@map("clinics")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  clinicId        String
+  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  email           String   @unique
+  passwordHash    String
+  fullName        String
+  role            Role     @default(SECRETARY)
+  phone           String?
+  inpeNumber      String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  appointments    Appointment[]
+  consultations   Consultation[]
+  paymentsReceived Payment[]     @relation("PaymentReceivedBy")
+  cashClosings    CashClosing[]   @relation("CashClosingClosedBy")
+  auditLogs       AuditLog[]      @relation("AuditActor")
+
+  @@index([clinicId])
+  @@map("users")
+}
+
+model Patient {
+  id                String        @id @default(uuid())
+  clinicId          String
+  clinic            Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  cin               String?
+  firstName         String
+  lastName          String
+  phone             String
+  birthDate         DateTime?
+  gender            String?
+  address           String?
+
+  insuranceType     InsuranceType @default(NONE)
+  immatriculationNo String?
+  affiliationNo     String?
+
+  bloodGroup        String?
+  allergies         String?
+  chronicDiseases   String?
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  appointments      Appointment[]
+  consultations     Consultation[]
+  invoices          Invoice[]
+  whatsappEvents    WhatsAppEvent[]
+
+  @@index([clinicId, phone])
+  @@index([clinicId, cin])
+  @@index([clinicId, lastName, firstName])
+  @@map("patients")
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  clinicId        String
+  clinic          Clinic            @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patientId       String
+  patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId        String
+  doctor          User              @relation(fields: [doctorId], references: [id])
+
+  scheduledAt     DateTime
+  durationMinutes Int               @default(20)
+  type            AppointmentType   @default(BOOKED)
+  status          AppointmentStatus @default(SCHEDULED)
+  queueNumber     Int?
+  notes           String?
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  consultation    Consultation?
+  whatsappEvents  WhatsAppEvent[]
+
+  @@index([clinicId, scheduledAt])
+  @@index([clinicId, doctorId, scheduledAt])
+  @@index([clinicId, status])
+  @@map("appointments")
+}
+
+model Consultation {
+  id              String        @id @default(uuid())
+  clinicId        String
+  clinic          Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointmentId   String?       @unique
+  appointment     Appointment?  @relation(fields: [appointmentId], references: [id])
+  patientId       String
+  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId        String
+  doctor          User          @relation(fields: [doctorId], references: [id])
+
+  symptoms        String?
+  diagnosis       String?
+  clinicalNotes   String?
+
+  prescriptions   Prescription[]
+  invoice         Invoice?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([clinicId, patientId])
+  @@index([clinicId, doctorId, createdAt])
+  @@map("consultations")
+}
+
+model Prescription {
+  id              String       @id @default(uuid())
+  clinicId        String
+  clinic          Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  consultationId  String
+  consultation    Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  medicationName  String
+  dosage          String
+  duration        String
+  isGeneric       Boolean      @default(false)
+  instructions    String?
+  createdAt       DateTime     @default(now())
+
+  @@index([clinicId, consultationId])
+  @@map("prescriptions")
+}
+
+model Invoice {
+  id                      String        @id @default(uuid())
+  clinicId                String
+  clinic                  Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patientId               String
+  patient                 Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultationId          String?       @unique
+  consultation            Consultation? @relation(fields: [consultationId], references: [id])
+
+  totalAmount             Decimal       @db.Decimal(10, 2)
+  status                  InvoiceStatus @default(ISSUED)
+  feuilleDeSoinsGenerated Boolean       @default(false)
+
+  payments                Payment[]
+
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@index([clinicId, patientId])
+  @@index([clinicId, status, createdAt])
+  @@map("invoices")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  clinicId        String
+  clinic          Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  invoiceId       String
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  receivedById    String
+  receivedBy      User          @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+
+  amount          Decimal       @db.Decimal(10, 2)
+  method          PaymentMethod
+  status          PaymentStatus @default(FINALIZED)
+  paidAt          DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+
+  @@index([clinicId, paidAt])
+  @@index([clinicId, invoiceId])
+  @@map("payments")
+}
+
+model CashClosing {
+  id                  String   @id @default(uuid())
+  clinicId            String
+  clinic              Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  closedById          String
+  closedBy            User     @relation("CashClosingClosedBy", fields: [closedById], references: [id])
+
+  businessDate        DateTime @db.Date
+  theoreticalCash     Decimal  @db.Decimal(10, 2)
+  theoreticalCard     Decimal  @db.Decimal(10, 2)
+  theoreticalCheque   Decimal  @db.Decimal(10, 2)
+  theoreticalTransfer Decimal  @db.Decimal(10, 2)
+  actualCash          Decimal  @db.Decimal(10, 2)
+  actualCard          Decimal  @db.Decimal(10, 2)
+  actualCheque        Decimal  @db.Decimal(10, 2)
+  actualTransfer      Decimal  @db.Decimal(10, 2)
+  totalTheoretical    Decimal  @db.Decimal(10, 2)
+  totalActual         Decimal  @db.Decimal(10, 2)
+  variance            Decimal  @db.Decimal(10, 2)
+  notes               String?
+  closedAt            DateTime @default(now())
+  isLocked            Boolean  @default(true)
+
+  @@unique([clinicId, businessDate])
+  @@index([clinicId, closedAt])
+  @@map("cash_closings")
+}
+
+model AuditLog {
+  id              String   @id @default(uuid())
+  clinicId        String
+  clinic          Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  actorUserId     String?
+  actorUser       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action          String
+  entityType      String
+  entityId        String
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  @@index([clinicId, entityType, entityId])
+  @@index([clinicId, createdAt])
+  @@map("audit_logs")
+}
+
+model WhatsAppEvent {
+  id                String            @id @default(uuid())
+  clinicId          String
+  clinic            Clinic            @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patientId         String?
+  patient           Patient?          @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  appointmentId     String?
+  appointment       Appointment?      @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  providerMessageId String?
+  eventType         WhatsAppEventType
+  status            WhatsAppStatus    @default(PENDING)
+  payload           Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([clinicId, providerMessageId])
+  @@index([clinicId, appointmentId])
+  @@index([clinicId, createdAt])
+  @@map("whatsapp_events")
+}
