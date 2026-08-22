@@ -31,6 +31,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clinicos_test?schema=public
       SESSION_SECRET: ci-only-session-secret-with-more-than-32-characters
+      SEED_PASSWORD: ci-only-seed-password-12345
       CI: true
 
     steps:
@@ -51,8 +52,11 @@ jobs:
       - name: Validate Prisma schema
         run: npx prisma validate
 
-      - name: Prepare integration database
-        run: npx prisma db push --skip-generate
+      - name: Apply committed migrations
+        run: npm run prisma:migrate:deploy
+
+      - name: Validate development seed
+        run: npm run db:seed
 
       - name: Lint
         run: npm run lint
