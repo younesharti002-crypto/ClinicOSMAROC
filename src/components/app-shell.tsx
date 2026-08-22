@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { AuthContext } from "@/lib/auth/context";
+import { can } from "@/lib/auth/permissions";
 import { logoutAction } from "@/features/auth/actions";
 
 const navigation = [
@@ -19,18 +20,22 @@ export function AppShell({
   title: string;
   children: React.ReactNode;
 }) {
+  const links = can(user.role, "consultation:write")
+    ? [["Médecin", "/doctor"] as const, ...navigation]
+    : navigation;
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
           <div>
-            <Link href="/reception" className="text-lg font-bold tracking-tight">
+            <Link href={can(user.role, "consultation:write") ? "/doctor" : "/reception"} className="text-lg font-bold tracking-tight">
               ClinicOS Maroc
             </Link>
             <p className="text-xs text-slate-500">{user.fullName} · {user.role}</p>
           </div>
           <nav className="flex flex-wrap gap-2">
-            {navigation.map(([label, href]) => (
+            {links.map(([label, href]) => (
               <Link
                 key={href}
                 href={href}
