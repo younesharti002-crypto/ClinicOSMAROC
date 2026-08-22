@@ -9,6 +9,7 @@ import {
 
 import type { AuthContext } from "@/lib/auth/context";
 import { assertCan } from "@/lib/auth/permissions";
+import { clinicDateKey } from "@/lib/time/clinic-time";
 
 export async function getBillingSnapshot(db: PrismaClient, ctx: AuthContext) {
   assertCan(ctx.role, "invoice:read");
@@ -46,7 +47,9 @@ export async function getBillingSnapshot(db: PrismaClient, ctx: AuthContext) {
         feuilleDeSoinsGenerated: true,
         patient: { select: { firstName: true, lastName: true } },
         payments: {
-          where: { status: PaymentStatus.FINALIZED },
+          where: {
+            status: { in: [PaymentStatus.FINALIZED, PaymentStatus.ADJUSTMENT] },
+          },
           select: { amount: true },
         },
       },
@@ -195,70 +198,102 @@ export async function recordPayment(
     throw new Error("Payment amount must be greater than zero");
   }
 
-  return db.$transaction(async (tx) => {
-    const invoice = await tx.invoice.findFirst({
-      where: { id: invoiceId, clinicId: ctx.clinicId },
-      select: { id: true, totalAmount: true, status: true },
-    });
-
-    if (!invoice || invoice.status === InvoiceStatus.VOID) {
-      throw new Error("Invoice not found or void");
-    }
-
-    const existing = await tx.payment.aggregate({
-      where: {
-        clinicId: ctx.clinicId,
-        invoiceId: invoice.id,
-        status: PaymentStatus.FINALIZED,
-      },
-      _sum: { amount: true },
-    });
-
-    const paidBefore = existing._sum.amount ?? new Prisma.Decimal(0);
-    const paidAfter = paidBefore.add(amount);
-
-    if (paidAfter.gt(invoice.totalAmount)) {
-      throw new Error("Payment exceeds invoice balance");
-    }
-
-    const payment = await tx.payment.create({
-      data: {
-        clinicId: ctx.clinicId,
-        invoiceId: invoice.id,
-        receivedById: ctx.userId,
-        amount,
-        method,
-        status: PaymentStatus.FINALIZED,
-      },
-      select: { id: true, amount: true },
-    });
-
-    await tx.invoice.update({
-      where: { id: invoice.id },
-      data: {
-        status: paidAfter.gte(invoice.totalAmount)
-          ? InvoiceStatus.PAID
-          : InvoiceStatus.ISSUED,
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        clinicId: ctx.clinicId,
-        actorUserId: ctx.userId,
-        action: "PAYMENT_RECORDED",
-        entityType: "Payment",
-        entityId: payment.id,
-        metadata: {
-          invoiceId: invoice.id,
-          method,
-          amount: payment.amount.toFixed(2),
-        },
-      },
-    });
-
-    return payment;
+  const clinic = await db.clinic.findUnique({
+    where: { id: ctx.clinicId },
+    select: { timezone: true },
   });
+
+  if (!clinic) {
+    throw new Error("Clinic not found");
+  }
+
+  const paidAt = new Date();
+  const dateKey = clinicDateKey(paidAt, clinic.timezone);
+  const businessDate = new Date(`${dateKey}T00:00:00.000Z`);
+
+  return db.$transaction(
+    async (tx) => {
+      const closing = await tx.cashClosing.findUnique({
+        where: {
+          clinicId_businessDate: {
+            clinicId: ctx.clinicId,
+            businessDate,
+          },
+        },
+        select: { id: true, isLocked: true },
+      });
+
+      if (closing?.isLocked) {
+        throw new Error("Cash day is closed; use an admin adjustment");
+      }
+
+      const invoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, clinicId: ctx.clinicId },
+        select: { id: true, totalAmount: true, status: true },
+      });
+
+      if (!invoice || invoice.status === InvoiceStatus.VOID) {
+        throw new Error("Invoice not found or void");
+      }
+
+      const existing = await tx.payment.aggregate({
+        where: {
+          clinicId: ctx.clinicId,
+          invoiceId: invoice.id,
+          status: { in: [PaymentStatus.FINALIZED, PaymentStatus.ADJUSTMENT] },
+        },
+        _sum: { amount: true },
+      });
+
+      const paidBefore = existing._sum.amount ?? new Prisma.Decimal(0);
+      const paidAfter = paidBefore.add(amount);
+
+      if (paidAfter.gt(invoice.totalAmount)) {
+        throw new Error("Payment exceeds invoice balance");
+      }
+
+      const payment = await tx.payment.create({
+        data: {
+          clinicId: ctx.clinicId,
+          invoiceId: invoice.id,
+          receivedById: ctx.userId,
+          amount,
+          method,
+          status: PaymentStatus.FINALIZED,
+          paidAt,
+        },
+        select: { id: true, amount: true },
+      });
+
+      await tx.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          status: paidAfter.gte(invoice.totalAmount)
+            ? InvoiceStatus.PAID
+            : InvoiceStatus.ISSUED,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          clinicId: ctx.clinicId,
+          actorUserId: ctx.userId,
+          action: "PAYMENT_RECORDED",
+          entityType: "Payment",
+          entityId: payment.id,
+          metadata: {
+            invoiceId: invoice.id,
+            method,
+            amount: payment.amount.toFixed(2),
+            businessDate: dateKey,
+          },
+        },
+      });
+
+      return payment;
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
 }
 
 export async function markFeuilleDeSoinsGenerated(

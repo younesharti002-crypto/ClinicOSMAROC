@@ -32,6 +32,10 @@ export function AppShell({
     links.push({ label: "Facturation", href: "/billing" });
   }
 
+  if (can(user.role, "cash:close")) {
+    links.push({ label: "Caisse", href: "/cash" });
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">

@@ -1,4 +1,9 @@
-import { InvoiceStatus, PaymentStatus, Prisma } from "@prisma/client";
+import {
+  InvoiceStatus,
+  PaymentStatus,
+  Prisma,
+  Role,
+} from "@prisma/client";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
@@ -6,9 +11,11 @@ import {
   generateFeuilleDeSoinsAction,
   recordPaymentAction,
 } from "@/features/billing/actions";
+import { recordPostCloseAdjustmentAction } from "@/features/cash/actions";
 import { requireCapability } from "@/lib/auth/context";
 import { can } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db";
+import { clinicDateKey } from "@/lib/time/clinic-time";
 import { getInvoice } from "@/server/repositories/billing";
 
 export default async function InvoicePage({
@@ -18,16 +25,30 @@ export default async function InvoicePage({
 }) {
   const ctx = await requireCapability("invoice:read");
   const { id } = await params;
-  const invoice = await getInvoice(prisma, ctx, id);
+  const [invoice, clinic] = await Promise.all([
+    getInvoice(prisma, ctx, id),
+    prisma.clinic.findUnique({
+      where: { id: ctx.clinicId },
+      select: { timezone: true },
+    }),
+  ]);
 
   if (!invoice) {
     notFound();
   }
+  if (!clinic) {
+    throw new Error("Clinic not found");
+  }
 
   const paid = invoice.payments
-    .filter((payment) => payment.status === PaymentStatus.FINALIZED)
+    .filter(
+      (payment) =>
+        payment.status === PaymentStatus.FINALIZED ||
+        payment.status === PaymentStatus.ADJUSTMENT,
+    )
     .reduce((sum, payment) => sum.add(payment.amount), new Prisma.Decimal(0));
   const balance = invoice.totalAmount.sub(paid);
+  const today = clinicDateKey(new Date(), clinic.timezone);
 
   return (
     <AppShell user={ctx} title={`Facture ${invoice.id.slice(0, 8)}`}>
@@ -49,7 +70,7 @@ export default async function InvoicePage({
             </div>
 
             <div className="mt-5 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-3">
-              <div><p className="text-xs text-slate-500">Payé</p><p className="font-bold">{paid.toFixed(2)} MAD</p></div>
+              <div><p className="text-xs text-slate-500">Payé / ajusté</p><p className="font-bold">{paid.toFixed(2)} MAD</p></div>
               <div><p className="text-xs text-slate-500">Solde</p><p className="font-bold">{balance.toFixed(2)} MAD</p></div>
               <div><p className="text-xs text-slate-500">Assurance</p><p className="font-bold">{invoice.patient.insuranceType}</p></div>
             </div>
@@ -64,7 +85,12 @@ export default async function InvoicePage({
                     <p className="font-semibold">{payment.method} · {payment.amount.toFixed(2)} MAD</p>
                     <p className="text-xs text-slate-500">{payment.paidAt.toLocaleString("fr-MA")} · {payment.receivedBy.fullName}</p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold">{payment.status}</span>
+                  <span className={payment.status === PaymentStatus.ADJUSTMENT
+                    ? "rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900"
+                    : "rounded-full bg-slate-100 px-2 py-1 text-xs font-bold"}
+                  >
+                    {payment.status}
+                  </span>
                 </div>
               ))}
               {invoice.payments.length === 0 ? <p className="text-sm text-slate-500">Aucun paiement enregistré.</p> : null}
@@ -76,6 +102,7 @@ export default async function InvoicePage({
           {can(ctx.role, "payment:record") && invoice.status !== InvoiceStatus.PAID && balance.gt(0) ? (
             <section className="rounded-xl border border-slate-200 bg-white p-5">
               <h2 className="mb-4 text-lg font-bold">Encaisser</h2>
+              <p className="mb-4 text-sm text-slate-500">Un paiement normal est refusé côté serveur si la caisse du jour est déjà clôturée.</p>
               <form action={recordPaymentAction} className="space-y-4">
                 <input type="hidden" name="invoiceId" value={invoice.id} />
                 <label className="block text-sm font-medium">Montant (MAD)
@@ -90,6 +117,36 @@ export default async function InvoicePage({
                   </select>
                 </label>
                 <button className="w-full rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Enregistrer paiement</button>
+              </form>
+            </section>
+          ) : null}
+
+          {ctx.role === Role.DOCTOR_ADMIN ? (
+            <section className="rounded-xl border border-amber-300 bg-amber-50 p-5">
+              <h2 className="mb-2 text-lg font-bold text-amber-950">Ajustement post-clôture</h2>
+              <p className="mb-4 text-sm text-amber-900">
+                Correction contrôlée uniquement. La clôture officielle ne sera jamais modifiée ni réouverte. L’ajustement et son motif seront audités.
+              </p>
+              <form action={recordPostCloseAdjustmentAction} className="space-y-4">
+                <input type="hidden" name="invoiceId" value={invoice.id} />
+                <label className="block text-sm font-medium">Date de caisse clôturée
+                  <input required type="date" name="businessDate" defaultValue={today} className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2" />
+                </label>
+                <label className="block text-sm font-medium">Montant signé (MAD)
+                  <input required name="amount" inputMode="decimal" placeholder="Ex: -50.00 ou 50.00" className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2" />
+                </label>
+                <label className="block text-sm font-medium">Mode
+                  <select name="method" className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2">
+                    <option value="CASH">Espèces</option>
+                    <option value="CARD">TPE / Carte</option>
+                    <option value="CHEQUE">Chèque</option>
+                    <option value="VIREMENT">Virement</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-medium">Motif obligatoire
+                  <textarea required name="reason" minLength={5} maxLength={1000} rows={3} className="mt-1 w-full rounded-lg border border-amber-300 bg-white p-3" />
+                </label>
+                <button className="w-full rounded-lg bg-amber-950 px-4 py-2 text-sm font-semibold text-white">Créer l’ajustement audité</button>
               </form>
             </section>
           ) : null}
