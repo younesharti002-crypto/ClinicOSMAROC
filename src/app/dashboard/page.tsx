@@ -29,7 +29,7 @@ export default async function DashboardPage() {
         <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-6">
           <h2 className="font-semibold text-slate-950">Foundation M1</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Authentification, isolation par clinique et RBAC sont en cours de validation avant l'ouverture des modules de réception.
+            Authentification, isolation par clinique et RBAC sont en cours de validation avant l&apos;ouverture des modules de réception.
           </p>
         </section>
       </div>
