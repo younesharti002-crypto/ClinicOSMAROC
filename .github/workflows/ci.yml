@@ -38,6 +38,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout locked reference source
+        uses: actions/checkout@v4
+        with:
+          ref: 8ad8eaa5b3afc4a0c75383eb5d10ec49a701c785
+          path: source-export
+          fetch-depth: 1
+
+      - name: Upload locked reference source
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClinicOSMAROC-source-8ad8eaa
+          path: |
+            source-export
+            !source-export/.git/**
+          include-hidden-files: true
+          if-no-files-found: error
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
