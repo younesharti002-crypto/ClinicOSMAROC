@@ -44,10 +44,11 @@ export async function AppShell({
     "--clinic-primary": primaryColor,
     "--clinic-accent": accentColor,
     backgroundImage:
-      "linear-gradient(180deg, rgba(248,250,252,0.76) 0%, rgba(248,250,252,0.88) 44%, rgba(248,250,252,0.94) 100%), url('/premium-clinic-bg.svg')",
+      "linear-gradient(180deg, rgba(248,250,252,0.18) 0%, rgba(248,250,252,0.30) 45%, rgba(248,250,252,0.48) 100%), url('/premium-clinic-bg.svg')",
     backgroundSize: "cover",
     backgroundPosition: "center top",
     backgroundAttachment: "fixed",
+    backgroundRepeat: "no-repeat",
   };
 
   if (can(user.role, "consultation:write")) {
@@ -77,16 +78,16 @@ export async function AppShell({
   }
 
   return (
-    <main className="relative min-h-screen bg-slate-50 text-slate-950" style={brandStyle}>
+    <main className="relative min-h-screen bg-slate-100 text-slate-950" style={brandStyle}>
       <div
         className="pointer-events-none fixed inset-0 z-0"
         style={{
-          background: `radial-gradient(circle at 86% 12%, ${accentColor}14 0, transparent 28%), radial-gradient(circle at 8% 92%, ${primaryColor}10 0, transparent 30%)`,
+          background: `radial-gradient(circle at 88% 10%, ${accentColor}26 0, transparent 32%), radial-gradient(circle at 6% 88%, ${primaryColor}20 0, transparent 34%)`,
         }}
         aria-hidden="true"
       />
 
-      <header className="relative z-20 border-b border-white/70 bg-white/88 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+      <header className="relative z-20 border-b border-white/70 bg-white/82 shadow-[0_10px_34px_rgba(15,23,42,0.09)] backdrop-blur-xl">
         <div className="h-1" style={{ backgroundColor: accentColor }} />
 
         <div className="mx-auto max-w-7xl px-4 md:px-6">
@@ -127,7 +128,7 @@ export async function AppShell({
             </div>
 
             <div className="flex items-center justify-between gap-3 lg:justify-end">
-              <div className="min-w-0 rounded-xl border border-white/80 bg-white/72 px-3 py-2 text-right shadow-sm backdrop-blur-md">
+              <div className="min-w-0 rounded-xl border border-white/85 bg-white/76 px-3 py-2 text-right shadow-sm backdrop-blur-md">
                 <p className="truncate text-sm font-semibold text-slate-800">{user.fullName}</p>
                 <p className="truncate text-xs text-slate-500">{roleLabels[user.role] ?? user.role}</p>
               </div>
@@ -148,7 +149,7 @@ export async function AppShell({
               <Link
                 key={href}
                 href={href}
-                className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white/80 hover:text-slate-950 hover:shadow-sm"
+                className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white/85 hover:text-slate-950 hover:shadow-sm"
               >
                 {label}
               </Link>
@@ -158,9 +159,9 @@ export async function AppShell({
       </header>
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="h-7 w-1 rounded-full shadow-sm" style={{ backgroundColor: accentColor }} aria-hidden="true" />
-          <h1 className="text-2xl font-bold tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] md:text-3xl" style={{ color: primaryColor }}>
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-white/65 bg-white/52 px-4 py-3 shadow-[0_12px_32px_rgba(15,23,42,0.06)] backdrop-blur-md md:px-5">
+          <div className="h-8 w-1 rounded-full shadow-sm" style={{ backgroundColor: accentColor }} aria-hidden="true" />
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl" style={{ color: primaryColor }}>
             {title}
           </h1>
         </div>
