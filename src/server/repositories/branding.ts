@@ -5,6 +5,7 @@ import type { AuthContext } from "@/lib/auth/context";
 const brandingSelect = {
   name: true,
   specialty: true,
+  city: true,
   logoUrl: true,
   website: true,
   brandPrimaryColor: true,
