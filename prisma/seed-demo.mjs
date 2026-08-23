@@ -13,18 +13,10 @@ import {
 const prisma = new PrismaClient();
 
 const confirm = process.env.DEMO_CONFIRM;
-const adminEmail = process.env.DEMO_ADMIN_EMAIL?.trim().toLowerCase();
-const adminPassword = process.env.DEMO_ADMIN_PASSWORD;
 const reset = process.env.DEMO_RESET === "YES";
 
 if (confirm !== "CREATE_SYNTHETIC_DEMO") {
   throw new Error("DEMO_CONFIRM must equal CREATE_SYNTHETIC_DEMO");
-}
-if (!adminEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
-  throw new Error("DEMO_ADMIN_EMAIL must be a valid email");
-}
-if (!adminPassword || adminPassword.length < 12) {
-  throw new Error("DEMO_ADMIN_PASSWORD must contain at least 12 characters");
 }
 
 const slug = "atlas-sante-demo";
@@ -40,16 +32,53 @@ const dateOnly = (dayOffset) => {
   return new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
 };
 
-async function main() {
-  const existing = await prisma.clinic.findUnique({ where: { slug }, select: { id: true } });
-  if (existing && !reset) {
-    throw new Error("Demo clinic already exists. Set DEMO_RESET=YES only if you intentionally want to recreate this synthetic tenant.");
+function readAdminCredentials() {
+  const adminEmail = process.env.DEMO_ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.DEMO_ADMIN_PASSWORD;
+
+  if (!adminEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+    throw new Error("DEMO_ADMIN_EMAIL must be a valid email");
   }
+  if (!adminPassword || adminPassword.length < 12) {
+    throw new Error("DEMO_ADMIN_PASSWORD must contain at least 12 characters");
+  }
+
+  return { adminEmail, adminPassword };
+}
+
+async function main() {
+  const existing = await prisma.clinic.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+
+  if (existing && !reset) {
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          slug,
+          synthetic: true,
+          created: false,
+          message: "Synthetic demo tenant already exists; no changes applied.",
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  const { adminEmail, adminPassword } = readAdminCredentials();
+
   if (existing && reset) {
     await prisma.clinic.delete({ where: { id: existing.id } });
   }
 
-  const emailExists = await prisma.user.findUnique({ where: { email: adminEmail }, select: { id: true } });
+  const emailExists = await prisma.user.findUnique({
+    where: { email: adminEmail },
+    select: { id: true },
+  });
   if (emailExists) {
     throw new Error("DEMO_ADMIN_EMAIL is already used by another account");
   }
@@ -131,8 +160,10 @@ async function main() {
             cin: `DEMO${String(index + 1).padStart(4, "0")}`,
             address: "Casablanca — donnée synthétique",
             insuranceType,
-            immatriculationNo: insuranceType === InsuranceType.NONE ? null : `DEMO-IMM-${index + 1}`,
-            affiliationNo: insuranceType === InsuranceType.NONE ? null : `DEMO-AFF-${index + 1}`,
+            immatriculationNo:
+              insuranceType === InsuranceType.NONE ? null : `DEMO-IMM-${index + 1}`,
+            affiliationNo:
+              insuranceType === InsuranceType.NONE ? null : `DEMO-AFF-${index + 1}`,
           },
         }),
       );
@@ -164,7 +195,8 @@ async function main() {
           doctorId: doctor.id,
           symptoms: "Donnée clinique synthétique pour démonstration",
           diagnosis: "Exemple de dossier DEMO — aucune donnée réelle",
-          clinicalNotes: "Contenu fictif destiné uniquement à la démonstration commerciale.",
+          clinicalNotes:
+            "Contenu fictif destiné uniquement à la démonstration commerciale.",
           createdAt: at(-1, spec.hour),
         },
       });
@@ -175,7 +207,8 @@ async function main() {
           medicationName: "Traitement DEMO",
           dosage: "Exemple",
           duration: "Démonstration",
-          instructions: "Donnée fictive — ne constitue pas une prescription médicale.",
+          instructions:
+            "Donnée fictive — ne constitue pas une prescription médicale.",
         },
       });
       const invoice = await tx.invoice.create({
@@ -279,7 +312,13 @@ async function main() {
     });
   });
 
-  console.log(JSON.stringify({ ok: true, slug, adminEmail, synthetic: true }, null, 2));
+  console.log(
+    JSON.stringify(
+      { ok: true, slug, adminEmail, synthetic: true, created: true },
+      null,
+      2,
+    ),
+  );
 }
 
 main()
