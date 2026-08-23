@@ -43,6 +43,11 @@ export async function AppShell({
   const brandStyle: BrandStyle = {
     "--clinic-primary": primaryColor,
     "--clinic-accent": accentColor,
+    backgroundImage:
+      "linear-gradient(180deg, rgba(248,250,252,0.76) 0%, rgba(248,250,252,0.88) 44%, rgba(248,250,252,0.94) 100%), url('/premium-clinic-bg.svg')",
+    backgroundSize: "cover",
+    backgroundPosition: "center top",
+    backgroundAttachment: "fixed",
   };
 
   if (can(user.role, "consultation:write")) {
@@ -72,8 +77,16 @@ export async function AppShell({
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950" style={brandStyle}>
-      <header className="border-b border-slate-200 bg-white shadow-sm">
+    <main className="relative min-h-screen bg-slate-50 text-slate-950" style={brandStyle}>
+      <div
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          background: `radial-gradient(circle at 86% 12%, ${accentColor}14 0, transparent 28%), radial-gradient(circle at 8% 92%, ${primaryColor}10 0, transparent 30%)`,
+        }}
+        aria-hidden="true"
+      />
+
+      <header className="relative z-20 border-b border-white/70 bg-white/88 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
         <div className="h-1" style={{ backgroundColor: accentColor }} />
 
         <div className="mx-auto max-w-7xl px-4 md:px-6">
@@ -84,11 +97,11 @@ export async function AppShell({
                 <img
                   src={branding.logoUrl}
                   alt={`Logo ${clinicName}`}
-                  className="h-12 w-12 shrink-0 rounded-2xl border border-slate-200 bg-white object-contain p-1.5 shadow-sm"
+                  className="h-12 w-12 shrink-0 rounded-2xl border border-white/80 bg-white/95 object-contain p-1.5 shadow-[0_10px_26px_rgba(15,23,42,0.10)]"
                 />
               ) : (
                 <div
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-[0_10px_26px_rgba(15,23,42,0.16)]"
                   style={{ backgroundColor: primaryColor }}
                   aria-hidden="true"
                 >
@@ -114,14 +127,14 @@ export async function AppShell({
             </div>
 
             <div className="flex items-center justify-between gap-3 lg:justify-end">
-              <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right">
+              <div className="min-w-0 rounded-xl border border-white/80 bg-white/72 px-3 py-2 text-right shadow-sm backdrop-blur-md">
                 <p className="truncate text-sm font-semibold text-slate-800">{user.fullName}</p>
                 <p className="truncate text-xs text-slate-500">{roleLabels[user.role] ?? user.role}</p>
               </div>
               <form action={logoutAction}>
                 <button
                   type="submit"
-                  className="whitespace-nowrap rounded-xl border bg-white px-3.5 py-2.5 text-sm font-semibold transition hover:bg-slate-50"
+                  className="whitespace-nowrap rounded-xl border bg-white/78 px-3.5 py-2.5 text-sm font-semibold shadow-sm backdrop-blur-md transition hover:bg-white"
                   style={{ borderColor: `${primaryColor}33`, color: primaryColor }}
                 >
                   Se déconnecter
@@ -130,12 +143,12 @@ export async function AppShell({
             </div>
           </div>
 
-          <nav className="-mx-4 flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 md:-mx-6 md:px-6" aria-label="Navigation principale">
+          <nav className="-mx-4 flex gap-1 overflow-x-auto border-t border-slate-200/60 px-4 py-2 md:-mx-6 md:px-6" aria-label="Navigation principale">
             {links.map(({ label, href }) => (
               <Link
                 key={href}
                 href={href}
-                className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white/80 hover:text-slate-950 hover:shadow-sm"
               >
                 {label}
               </Link>
@@ -144,10 +157,10 @@ export async function AppShell({
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
         <div className="mb-6 flex items-center gap-3">
-          <div className="h-7 w-1 rounded-full" style={{ backgroundColor: accentColor }} aria-hidden="true" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl" style={{ color: primaryColor }}>
+          <div className="h-7 w-1 rounded-full shadow-sm" style={{ backgroundColor: accentColor }} aria-hidden="true" />
+          <h1 className="text-2xl font-bold tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] md:text-3xl" style={{ color: primaryColor }}>
             {title}
           </h1>
         </div>
