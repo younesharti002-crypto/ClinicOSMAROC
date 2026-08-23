@@ -26,22 +26,14 @@ function requireProductionEnv() {
 }
 
 const isVercelProduction = process.env.VERCEL_ENV === "production";
-const createSyntheticDemo =
-  process.env.DEMO_CONFIRM === "CREATE_SYNTHETIC_DEMO";
 
 if (isVercelProduction) {
   requireProductionEnv();
   console.log("ClinicOS production build: applying committed Prisma migrations...");
   run("npx", ["prisma", "migrate", "deploy"]);
-
-  if (createSyntheticDemo) {
-    console.log("ClinicOS production build: ensuring synthetic commercial demo tenant...");
-    run("node", ["prisma/seed-demo.mjs"]);
-  } else {
-    console.log("ClinicOS production build: synthetic demo seed not requested.");
-  }
+  console.log("ClinicOS production build: demo provisioning is disabled; continuing with application build.");
 } else {
-  console.log("ClinicOS non-production build: skipping production database migrations and demo seed.");
+  console.log("ClinicOS non-production build: skipping production database migrations.");
 }
 
 run("npx", ["next", "build"]);
