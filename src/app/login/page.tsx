@@ -9,7 +9,7 @@ export default async function LoginPage() {
   const accentColor = branding?.brandAccentColor ?? "#0F766E";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6">
       <section className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="h-1.5" style={{ backgroundColor: accentColor }} />
         <div className="p-6">
@@ -46,6 +46,13 @@ export default async function LoginPage() {
           <LoginForm />
         </div>
       </section>
+
+      <footer className="mt-6 max-w-md text-center text-xs leading-relaxed text-slate-500">
+        <p>© 2026 ClinicOS Maroc — Agence Digital HARTI. Tous droits réservés · جميع الحقوق محفوظة.</p>
+        <p className="mt-1 text-[11px] text-slate-400" title="Référence interne du produit">
+          Réf. produit : HARTI-CLINICOS-2026-001
+        </p>
+      </footer>
     </main>
   );
 }
