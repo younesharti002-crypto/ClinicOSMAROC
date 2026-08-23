@@ -72,7 +72,7 @@ export async function AppShell({
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-slate-100 text-slate-950" style={brandStyle}>
+    <main className="relative flex min-h-screen flex-col overflow-hidden bg-slate-100 text-slate-950" style={brandStyle}>
       {/* Explicit image layer: avoids browser/background-style rendering differences. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -160,7 +160,7 @@ export async function AppShell({
         </div>
       </header>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-6 md:py-8">
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-white/70 bg-white/58 px-4 py-3 shadow-[0_12px_32px_rgba(15,23,42,0.08)] backdrop-blur-md md:px-5">
           <div className="h-8 w-1 rounded-full shadow-sm" style={{ backgroundColor: accentColor }} aria-hidden="true" />
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl" style={{ color: primaryColor }}>
@@ -169,6 +169,13 @@ export async function AppShell({
         </div>
         {children}
       </div>
+
+      <footer className="relative z-10 border-t border-white/70 bg-white/68 px-4 py-4 text-center text-xs text-slate-500 backdrop-blur-md md:px-6">
+        <p>© 2026 ClinicOS Maroc — Agence Digital HARTI. Tous droits réservés · جميع الحقوق محفوظة.</p>
+        <p className="mt-1 text-[11px] text-slate-400" title="Référence interne du produit">
+          Réf. produit : HARTI-CLINICOS-2026-001
+        </p>
+      </footer>
     </main>
   );
 }
