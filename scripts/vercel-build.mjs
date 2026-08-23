@@ -27,6 +27,9 @@ function requireProductionEnv() {
 
 const isVercelProduction = process.env.VERCEL_ENV === "production";
 
+console.log("ClinicOS build: generating Prisma client from committed schema...");
+run("npx", ["prisma", "generate"]);
+
 if (isVercelProduction) {
   requireProductionEnv();
   console.log("ClinicOS production build: applying committed Prisma migrations...");
