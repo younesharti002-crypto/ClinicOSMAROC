@@ -33,7 +33,7 @@ Canonical profile file:
 
 This is also the example format to give an AI when preparing a new clinic customization.
 
-## Safe creation
+## Safe creation from a terminal
 
 The DEMO seed refuses to run unless all of these are intentionally supplied in the execution environment:
 
@@ -48,9 +48,30 @@ Then run:
 
 No demo password is committed to the repository.
 
+## Safe one-time creation on Vercel Production
+
+The production build can create the synthetic demo tenant only when:
+
+`DEMO_CONFIRM=CREATE_SYNTHETIC_DEMO`
+
+is explicitly present in the Production environment.
+
+For the first creation, also configure `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD` as Vercel Production environment variables and redeploy `main`.
+
+The build sequence is:
+
+1. verify core production secrets
+2. apply committed Prisma migrations
+3. ensure the synthetic demo tenant only when explicitly requested
+4. run the Next.js production build
+
+If `atlas-sante-demo` already exists and `DEMO_RESET` is not `YES`, the seed exits successfully without modifying the tenant. This keeps later redeployments safe.
+
+After successful creation, remove `DEMO_ADMIN_PASSWORD` and preferably all temporary `DEMO_*` provisioning variables from Vercel. The created account remains in the database with its bcrypt hash.
+
 ## Recreating the DEMO
 
-By default, the command aborts if `atlas-sante-demo` already exists.
+By default, an existing `atlas-sante-demo` tenant is preserved without changes.
 
 For an intentional recreation only, set:
 
