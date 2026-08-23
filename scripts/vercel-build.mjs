@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { rmSync } from "node:fs";
 
 function run(command, args) {
   const executable = process.platform === "win32" && command === "npx" ? "npx.cmd" : command;
@@ -35,5 +36,8 @@ if (isVercelProduction) {
 } else {
   console.log("ClinicOS non-production build: skipping production database migrations.");
 }
+
+console.log("ClinicOS build: clearing stale Next.js generated types/cache...");
+rmSync(".next", { recursive: true, force: true });
 
 run("npx", ["next", "build"]);
