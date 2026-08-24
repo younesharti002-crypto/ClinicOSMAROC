@@ -1,5 +1,6 @@
 import {
   AppointmentStatus,
+  AppointmentType,
   PaymentMethod,
   PaymentStatus,
   Prisma,
@@ -109,6 +110,13 @@ function buildDateKeys(startKey: string, endKey: string) {
   return keys;
 }
 
+function typeCount(
+  rows: Array<{ type: AppointmentType }>,
+  type: AppointmentType,
+) {
+  return rows.filter((row) => row.type === type).length;
+}
+
 export async function getBusinessAnalytics(
   db: PrismaClient,
   ctx: AuthContext,
@@ -129,10 +137,14 @@ export async function getBusinessAnalytics(
 
   const [
     todayStatuses,
+    todayAppointments,
+    todayPayments,
+    todayConsultations,
     monthStatuses,
     monthPayments,
-    newPatients,
     monthAppointments,
+    monthConsultations,
+    activePatients,
     doctors,
   ] = await Promise.all([
     db.appointment.groupBy({
@@ -142,6 +154,27 @@ export async function getBusinessAnalytics(
         scheduledAt: { gte: todayRange.start, lt: todayRange.end },
       },
       _count: { _all: true },
+    }),
+    db.appointment.findMany({
+      where: {
+        clinicId: ctx.clinicId,
+        scheduledAt: { gte: todayRange.start, lt: todayRange.end },
+      },
+      select: { patientId: true, type: true },
+    }),
+    db.payment.findMany({
+      where: {
+        clinicId: ctx.clinicId,
+        paidAt: { gte: todayRange.start, lt: todayRange.end },
+        status: { in: [PaymentStatus.FINALIZED, PaymentStatus.ADJUSTMENT] },
+      },
+      select: { amount: true, method: true },
+    }),
+    db.consultation.count({
+      where: {
+        clinicId: ctx.clinicId,
+        createdAt: { gte: todayRange.start, lt: todayRange.end },
+      },
     }),
     db.appointment.groupBy({
       by: ["status"],
@@ -160,23 +193,36 @@ export async function getBusinessAnalytics(
       select: { amount: true, method: true, paidAt: true },
       orderBy: { paidAt: "asc" },
     }),
-    db.patient.count({
-      where: {
-        clinicId: ctx.clinicId,
-        createdAt: { gte: period.start, lt: period.end },
-      },
-    }),
     db.appointment.findMany({
       where: {
         clinicId: ctx.clinicId,
         scheduledAt: { gte: period.start, lt: period.end },
       },
       select: {
+        patientId: true,
         doctorId: true,
         scheduledAt: true,
         status: true,
+        type: true,
       },
       orderBy: { scheduledAt: "asc" },
+    }),
+    db.consultation.count({
+      where: {
+        clinicId: ctx.clinicId,
+        createdAt: { gte: period.start, lt: period.end },
+      },
+    }),
+    db.patient.findMany({
+      where: {
+        clinicId: ctx.clinicId,
+        appointments: {
+          some: {
+            scheduledAt: { gte: period.start, lt: period.end },
+          },
+        },
+      },
+      select: { id: true, createdAt: true },
     }),
     db.user.findMany({
       where: {
@@ -188,6 +234,11 @@ export async function getBusinessAnalytics(
       orderBy: { fullName: "asc" },
     }),
   ]);
+
+  const todayRevenue = emptyPaymentTotals();
+  for (const payment of todayPayments) {
+    addPayment(todayRevenue, payment.amount, payment.method);
+  }
 
   const revenue = emptyPaymentTotals();
   for (const payment of monthPayments) {
@@ -251,6 +302,11 @@ export async function getBusinessAnalytics(
     };
   });
 
+  const newPatients = activePatients.filter(
+    (patient) => patient.createdAt >= period.start && patient.createdAt < period.end,
+  ).length;
+  const repeatPatients = activePatients.length - newPatients;
+
   return {
     clinic: {
       id: clinic.id,
@@ -265,6 +321,10 @@ export async function getBusinessAnalytics(
     today: {
       dateKey: todayKey,
       total: todayStatuses.reduce((sum, row) => sum + row._count._all, 0),
+      patients: new Set(todayAppointments.map((appointment) => appointment.patientId)).size,
+      booked: typeCount(todayAppointments, AppointmentType.BOOKED),
+      walkIns: typeCount(todayAppointments, AppointmentType.WALK_IN),
+      emergencies: typeCount(todayAppointments, AppointmentType.EMERGENCY),
       scheduled: statusCount(todayStatuses, AppointmentStatus.SCHEDULED),
       confirmed: statusCount(todayStatuses, AppointmentStatus.CONFIRMED),
       waiting: statusCount(todayStatuses, AppointmentStatus.WAITING_ROOM),
@@ -272,16 +332,24 @@ export async function getBusinessAnalytics(
       completed: statusCount(todayStatuses, AppointmentStatus.COMPLETED),
       noShow: statusCount(todayStatuses, AppointmentStatus.NO_SHOW),
       cancelled: statusCount(todayStatuses, AppointmentStatus.CANCELLED),
+      consultations: todayConsultations,
+      revenue: todayRevenue,
     },
     month: {
       totalAppointments,
+      booked: typeCount(monthAppointments, AppointmentType.BOOKED),
+      walkIns: typeCount(monthAppointments, AppointmentType.WALK_IN),
+      emergencies: typeCount(monthAppointments, AppointmentType.EMERGENCY),
       completed,
       noShow,
       cancelled,
       activeAppointments: totalAppointments - cancelled,
       noShowRate: rate(noShow, completed + noShow),
       completionRate: rate(completed, completed + noShow),
+      consultations: monthConsultations,
+      uniquePatients: activePatients.length,
       newPatients,
+      repeatPatients,
       revenue,
     },
     daily: Array.from(dailyMap.values()),
