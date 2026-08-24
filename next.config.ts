@@ -4,6 +4,18 @@ import { buildSecurityHeaders } from "./src/lib/security/headers";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/",
+          destination: "/clinicos-premium-v3.html",
+        },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async headers() {
     return [
       {
