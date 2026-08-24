@@ -133,6 +133,20 @@ describe("M2 reception flow", () => {
     expect(patients.map((patient) => patient.id)).not.toContain(patientB.id);
   });
 
+  it("keeps secretary patient projections administrative-only", async () => {
+    const { secretaryCtx, patientA } = await fixture();
+    const patients = await listPatients(db, secretaryCtx, "", 100);
+    const projected = patients.find((patient) => patient.id === patientA.id);
+
+    expect(projected).toBeDefined();
+    expect(projected).not.toHaveProperty("bloodGroup");
+    expect(projected).not.toHaveProperty("allergies");
+    expect(projected).not.toHaveProperty("chronicDiseases");
+    expect(projected).not.toHaveProperty("consultations");
+    expect(projected).not.toHaveProperty("diagnosis");
+    expect(projected).not.toHaveProperty("clinicalNotes");
+  });
+
   it("rejects cross-tenant patient or doctor when creating an appointment", async () => {
     const { secretaryCtx, patientA, patientB, doctorA, doctorB } = await fixture();
 
@@ -157,6 +171,33 @@ describe("M2 reception flow", () => {
         notes: null,
       }),
     ).rejects.toThrow("Patient or doctor not found in clinic");
+  });
+
+  it("moves a booked appointment into the queue when reception marks the patient arrived", async () => {
+    const { secretaryCtx, patientA, doctorA } = await fixture();
+    const booked = await createAppointment(db, secretaryCtx, {
+      patientId: patientA.id,
+      doctorId: doctorA.id,
+      scheduledAt: new Date("2026-08-22T14:00:00Z"),
+      durationMinutes: 20,
+      type: AppointmentType.BOOKED,
+      notes: null,
+    });
+
+    expect(booked.status).toBe(AppointmentStatus.SCHEDULED);
+
+    const arrived = await transitionAppointment(
+      db,
+      secretaryCtx,
+      booked.id,
+      AppointmentStatus.WAITING_ROOM,
+    );
+
+    expect(arrived.status).toBe(AppointmentStatus.WAITING_ROOM);
+
+    const queue = await getQueue(db, secretaryCtx);
+    expect(queue.map((entry) => entry.id)).toContain(booked.id);
+    expect(queue.find((entry) => entry.id === booked.id)?.position).toBe(1);
   });
 
   it("creates walk-ins directly in the waiting room and prioritizes emergencies", async () => {
