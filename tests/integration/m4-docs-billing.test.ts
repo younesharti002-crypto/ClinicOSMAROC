@@ -10,6 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { AuthContext } from "@/lib/auth/context";
 import { ForbiddenError } from "@/lib/auth/permissions";
+import { clinicDateKey } from "@/lib/time/clinic-time";
 import { createAppointment } from "@/server/repositories/appointments";
 import {
   createInvoiceForConsultation,
@@ -18,6 +19,7 @@ import {
   markFeuilleDeSoinsGenerated,
   recordPayment,
 } from "@/server/repositories/billing";
+import { getCashDay } from "@/server/repositories/cash";
 import {
   finishConsultation,
   startConsultation,
@@ -26,6 +28,7 @@ import {
   addPrescriptionLine,
   getPrescriptionWorkspace,
   removePrescriptionLine,
+  updatePrescriptionLine,
 } from "@/server/repositories/prescriptions";
 
 const db = new PrismaClient();
@@ -186,7 +189,7 @@ describe("M4 documents, billing and payments", () => {
     await db.$disconnect();
   });
 
-  it("allows only authorized doctor to manage prescription lines", async () => {
+  it("allows only authorized doctor to add, edit and remove prescription lines", async () => {
     const { secretaryCtx, doctorCtx, doctorBCtx, doctorA, patientA } = await fixture();
     const consultation = await completedConsultation(secretaryCtx, doctorCtx, patientA.id, doctorA.id);
 
@@ -208,10 +211,29 @@ describe("M4 documents, billing and payments", () => {
       instructions: "Après repas",
     });
 
-    expect(await getPrescriptionWorkspace(db, doctorBCtx, consultation.id)).toBeNull();
+    await updatePrescriptionLine(db, doctorCtx, line.id, {
+      medicationName: "Paracétamol 500 mg",
+      dosage: "1 comprimé matin et soir",
+      duration: "5 jours",
+      isGeneric: true,
+      instructions: "Après les repas",
+    });
 
-    const workspace = await getPrescriptionWorkspace(db, doctorCtx, consultation.id);
-    expect(workspace?.prescriptions[0]?.medicationName).toBe("Paracétamol");
+    const updatedWorkspace = await getPrescriptionWorkspace(db, doctorCtx, consultation.id);
+    expect(updatedWorkspace?.prescriptions[0]?.medicationName).toBe("Paracétamol 500 mg");
+    expect(updatedWorkspace?.prescriptions[0]?.duration).toBe("5 jours");
+
+    await expect(
+      updatePrescriptionLine(db, doctorBCtx, line.id, {
+        medicationName: "Cross tenant",
+        dosage: "1/j",
+        duration: "1 jour",
+        isGeneric: false,
+        instructions: null,
+      }),
+    ).rejects.toThrow("Prescription line not found for this doctor and clinic");
+
+    expect(await getPrescriptionWorkspace(db, doctorBCtx, consultation.id)).toBeNull();
 
     await removePrescriptionLine(db, doctorCtx, line.id);
     expect((await getPrescriptionWorkspace(db, doctorCtx, consultation.id))?.prescriptions).toHaveLength(0);
@@ -230,8 +252,8 @@ describe("M4 documents, billing and payments", () => {
     expect(candidate?.patient).not.toHaveProperty("allergies");
   });
 
-  it("creates invoice, records payment actor, and marks invoice paid", async () => {
-    const { secretaryCtx, doctorCtx, doctorA, patientA, secretary } = await fixture();
+  it("creates invoice, records payment actor, marks invoice paid and includes payment in daily totals", async () => {
+    const { clinicA, secretaryCtx, doctorCtx, doctorA, patientA, secretary } = await fixture();
     const consultation = await completedConsultation(secretaryCtx, doctorCtx, patientA.id, doctorA.id);
 
     const invoice = await createInvoiceForConsultation(
@@ -257,6 +279,12 @@ describe("M4 documents, billing and payments", () => {
     expect(storedInvoice?.status).toBe(InvoiceStatus.PAID);
     expect(storedPayment?.receivedById).toBe(secretary.id);
     expect(storedPayment?.clinicId).toBe(secretaryCtx.clinicId);
+
+    const dateKey = clinicDateKey(new Date(), clinicA.timezone);
+    const cashDay = await getCashDay(db, secretaryCtx, dateKey);
+    expect(cashDay.theoretical.card.toFixed(2)).toBe("300.00");
+    expect(cashDay.theoretical.total.toFixed(2)).toBe("300.00");
+    expect(cashDay.payments.map((item) => item.id)).toContain(payment.id);
   });
 
   it("rejects overpayment and cross-tenant invoice access", async () => {
