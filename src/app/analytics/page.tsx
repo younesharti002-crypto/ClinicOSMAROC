@@ -35,7 +35,13 @@ export default async function AnalyticsPage({
 }) {
   const ctx = await requireCapability("analytics:business");
   const params = await searchParams;
-  const defaultMonth = clinicDateKey(new Date(), "Africa/Casablanca").slice(0, 7);
+  const clinic = await prisma.clinic.findUnique({
+    where: { id: ctx.clinicId },
+    select: { timezone: true },
+  });
+  if (!clinic) throw new Error("Clinic not found");
+
+  const defaultMonth = clinicDateKey(new Date(), clinic.timezone).slice(0, 7);
   const monthKey = params.month && MONTH_PATTERN.test(params.month) ? params.month : defaultMonth;
   const analytics = await getBusinessAnalytics(prisma, ctx, monthKey);
 
@@ -70,52 +76,35 @@ export default async function AnalyticsPage({
             <p className="text-lg font-bold capitalize">{monthLabel(monthKey)}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/analytics?month=${shiftMonth(monthKey, -1)}`}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold"
-            >
-              ← Mois précédent
-            </Link>
+            <Link href={`/analytics?month=${shiftMonth(monthKey, -1)}`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">← Mois précédent</Link>
             <form className="flex items-center gap-2">
-              <input
-                type="month"
-                name="month"
-                defaultValue={monthKey}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <button className="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white">
-                Afficher
-              </button>
+              <input type="month" name="month" defaultValue={monthKey} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+              <button className="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white">Afficher</button>
             </form>
-            <Link
-              href={`/analytics?month=${shiftMonth(monthKey, 1)}`}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold"
-            >
-              Mois suivant →
-            </Link>
+            <Link href={`/analytics?month=${shiftMonth(monthKey, 1)}`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">Mois suivant →</Link>
           </div>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">Encaissements nets</p>
+            <p className="text-sm text-slate-500">Encaissements nets du mois</p>
             <p className="mt-2 text-3xl font-bold">{analytics.month.revenue.total.toFixed(2)} MAD</p>
             <p className="mt-2 text-xs text-slate-500">Paiements finalisés + ajustements audités</p>
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">Consultations terminées</p>
-            <p className="mt-2 text-3xl font-bold">{analytics.month.completed}</p>
-            <p className="mt-2 text-xs text-slate-500">Taux de réalisation {analytics.month.completionRate}%</p>
+            <p className="text-sm text-slate-500">Consultations</p>
+            <p className="mt-2 text-3xl font-bold">{analytics.month.consultations}</p>
+            <p className="mt-2 text-xs text-slate-500">{analytics.month.completed} RDV terminés</p>
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-5">
             <p className="text-sm text-slate-500">No-show</p>
             <p className="mt-2 text-3xl font-bold">{analytics.month.noShowRate}%</p>
-            <p className="mt-2 text-xs text-slate-500">{analytics.month.noShow} absence(s) enregistrée(s)</p>
+            <p className="mt-2 text-xs text-slate-500">{analytics.month.noShow} absence(s)</p>
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">Nouveaux patients</p>
-            <p className="mt-2 text-3xl font-bold">{analytics.month.newPatients}</p>
-            <p className="mt-2 text-xs text-slate-500">Créés pendant la période</p>
+            <p className="text-sm text-slate-500">Patients actifs</p>
+            <p className="mt-2 text-3xl font-bold">{analytics.month.uniquePatients}</p>
+            <p className="mt-2 text-xs text-slate-500">{analytics.month.newPatients} nouveaux · {analytics.month.repeatPatients} récurrents</p>
           </article>
         </section>
 
@@ -123,26 +112,38 @@ export default async function AnalyticsPage({
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">Aujourd’hui · {analytics.today.dateKey}</h2>
-              <p className="text-sm text-slate-500">Vue opérationnelle du cabinet</p>
+              <p className="text-sm text-slate-500">Vue opérationnelle et financière du cabinet</p>
             </div>
-            <p className="text-2xl font-bold">{analytics.today.total} RDV</p>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Encaissements aujourd’hui</p>
+              <p className="text-2xl font-bold">{analytics.today.revenue.total.toFixed(2)} MAD</p>
+            </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-7">
-            {[
-              ["Planifiés", analytics.today.scheduled],
-              ["Confirmés", analytics.today.confirmed],
-              ["En attente", analytics.today.waiting],
-              ["En consultation", analytics.today.inConsultation],
-              ["Terminés", analytics.today.completed],
-              ["No-show", analytics.today.noShow],
-              ["Annulés", analytics.today.cancelled],
-            ].map(([label, value]) => (
-              <div key={String(label)} className="rounded-lg bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">{label}</p>
-                <p className="mt-1 text-xl font-bold">{value}</p>
-              </div>
-            ))}
+
+          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Patients</p><p className="mt-1 text-xl font-bold">{analytics.today.patients}</p></div>
+            <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Réservés</p><p className="mt-1 text-xl font-bold">{analytics.today.booked}</p></div>
+            <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Sans RDV</p><p className="mt-1 text-xl font-bold">{analytics.today.walkIns}</p></div>
+            <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">En attente</p><p className="mt-1 text-xl font-bold">{analytics.today.waiting}</p></div>
+            <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Terminés</p><p className="mt-1 text-xl font-bold">{analytics.today.completed}</p></div>
+            <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Consultations</p><p className="mt-1 text-xl font-bold">{analytics.today.consultations}</p></div>
           </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <div className="rounded-lg border border-slate-100 p-3"><p className="text-xs text-slate-500">Planifiés</p><p className="mt-1 font-bold">{analytics.today.scheduled}</p></div>
+            <div className="rounded-lg border border-slate-100 p-3"><p className="text-xs text-slate-500">Confirmés</p><p className="mt-1 font-bold">{analytics.today.confirmed}</p></div>
+            <div className="rounded-lg border border-slate-100 p-3"><p className="text-xs text-slate-500">En consultation</p><p className="mt-1 font-bold">{analytics.today.inConsultation}</p></div>
+            <div className="rounded-lg border border-slate-100 p-3"><p className="text-xs text-slate-500">No-show</p><p className="mt-1 font-bold">{analytics.today.noShow}</p></div>
+            <div className="rounded-lg border border-slate-100 p-3"><p className="text-xs text-slate-500">Annulés</p><p className="mt-1 font-bold">{analytics.today.cancelled}</p></div>
+            <div className="rounded-lg border border-slate-100 p-3"><p className="text-xs text-slate-500">Urgences</p><p className="mt-1 font-bold">{analytics.today.emergencies}</p></div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">RDV réservés</p><p className="mt-1 text-2xl font-bold">{analytics.month.booked}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">Walk-ins</p><p className="mt-1 text-2xl font-bold">{analytics.month.walkIns}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">Nouveaux patients</p><p className="mt-1 text-2xl font-bold">{analytics.month.newPatients}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">Patients récurrents</p><p className="mt-1 text-2xl font-bold">{analytics.month.repeatPatients}</p></div>
         </section>
 
         <div className="grid gap-6 xl:grid-cols-2">
@@ -154,16 +155,8 @@ export default async function AnalyticsPage({
                 const numeric = Number(amount.toFixed(2));
                 return (
                   <div key={label}>
-                    <div className="mb-1 flex justify-between gap-3 text-sm">
-                      <span className="font-semibold">{label}</span>
-                      <span>{amount.toFixed(2)} MAD</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-slate-900"
-                        style={{ width: percentWidth(Math.max(0, numeric), maxMethodRevenue) }}
-                      />
-                    </div>
+                    <div className="mb-1 flex justify-between gap-3 text-sm"><span className="font-semibold">{label}</span><span>{amount.toFixed(2)} MAD</span></div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-slate-900" style={{ width: percentWidth(Math.max(0, numeric), maxMethodRevenue) }} /></div>
                   </div>
                 );
               })}
@@ -178,25 +171,13 @@ export default async function AnalyticsPage({
                 const revenue = Number(day.revenue.toFixed(2));
                 return (
                   <div key={day.dateKey} className="rounded-lg border border-slate-100 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span className="font-semibold">{day.dateKey}</span>
-                      <span>{day.revenue.toFixed(2)} MAD</span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-slate-900"
-                        style={{ width: percentWidth(Math.max(0, revenue), maxDailyRevenue) }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {day.appointments} RDV · {day.completed} terminé(s) · {day.noShow} no-show
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="font-semibold">{day.dateKey}</span><span>{day.revenue.toFixed(2)} MAD</span></div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-slate-900" style={{ width: percentWidth(Math.max(0, revenue), maxDailyRevenue) }} /></div>
+                    <p className="mt-2 text-xs text-slate-500">{day.appointments} RDV · {day.completed} terminé(s) · {day.noShow} no-show</p>
                   </div>
                 );
               })}
-              {activeDays.length === 0 ? (
-                <p className="text-sm text-slate-500">Aucune activité sur cette période.</p>
-              ) : null}
+              {activeDays.length === 0 ? <p className="text-sm text-slate-500">Aucune activité sur cette période.</p> : null}
             </div>
           </section>
         </div>
@@ -208,46 +189,21 @@ export default async function AnalyticsPage({
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[680px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-3 py-3">Médecin</th>
-                  <th className="px-3 py-3 text-right">RDV</th>
-                  <th className="px-3 py-3 text-right">Terminés</th>
-                  <th className="px-3 py-3 text-right">No-show</th>
-                  <th className="px-3 py-3 text-right">Réalisation</th>
-                </tr>
-              </thead>
+              <thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="px-3 py-3">Médecin</th><th className="px-3 py-3 text-right">RDV</th><th className="px-3 py-3 text-right">Terminés</th><th className="px-3 py-3 text-right">No-show</th><th className="px-3 py-3 text-right">Réalisation</th></tr></thead>
               <tbody>
                 {analytics.doctors.map((doctor) => (
-                  <tr key={doctor.doctorId} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-3 font-semibold">{doctor.doctorName}</td>
-                    <td className="px-3 py-3 text-right">{doctor.appointments}</td>
-                    <td className="px-3 py-3 text-right">{doctor.completed}</td>
-                    <td className="px-3 py-3 text-right">{doctor.noShow}</td>
-                    <td className="px-3 py-3 text-right font-semibold">{doctor.completionRate}%</td>
-                  </tr>
+                  <tr key={doctor.doctorId} className="border-b border-slate-100 last:border-0"><td className="px-3 py-3 font-semibold">{doctor.doctorName}</td><td className="px-3 py-3 text-right">{doctor.appointments}</td><td className="px-3 py-3 text-right">{doctor.completed}</td><td className="px-3 py-3 text-right">{doctor.noShow}</td><td className="px-3 py-3 text-right font-semibold">{doctor.completionRate}%</td></tr>
                 ))}
-                {analytics.doctors.length === 0 ? (
-                  <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">Aucun médecin actif.</td></tr>
-                ) : null}
+                {analytics.doctors.length === 0 ? <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">Aucun médecin actif.</td></tr> : null}
               </tbody>
             </table>
           </div>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-sm text-slate-500">RDV du mois</p>
-            <p className="mt-1 text-2xl font-bold">{analytics.month.totalAppointments}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-sm text-slate-500">RDV actifs hors annulations</p>
-            <p className="mt-1 text-2xl font-bold">{analytics.month.activeAppointments}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-sm text-slate-500">Annulations</p>
-            <p className="mt-1 text-2xl font-bold">{analytics.month.cancelled}</p>
-          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">RDV du mois</p><p className="mt-1 text-2xl font-bold">{analytics.month.totalAppointments}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">RDV actifs hors annulations</p><p className="mt-1 text-2xl font-bold">{analytics.month.activeAppointments}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm text-slate-500">Annulations</p><p className="mt-1 text-2xl font-bold">{analytics.month.cancelled}</p></div>
         </section>
       </div>
     </AppShell>
