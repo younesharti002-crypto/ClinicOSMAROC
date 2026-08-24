@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { LoginForm } from "@/features/auth/login-form";
 import { prisma } from "@/lib/db";
 import { getPublicLoginBranding } from "@/server/repositories/branding";
@@ -44,6 +46,14 @@ export default async function LoginPage() {
             </p>
           </div>
           <LoginForm />
+          <div className="mt-5 border-t border-slate-100 pt-4 text-center">
+            <Link
+              href="/"
+              className="text-sm font-semibold text-slate-600 transition hover:text-slate-950"
+            >
+              ← Retour au site ClinicOS Maroc
+            </Link>
+          </div>
         </div>
       </section>
 
