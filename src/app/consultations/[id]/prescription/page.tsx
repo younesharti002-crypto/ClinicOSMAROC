@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import {
   addPrescriptionLineAction,
   removePrescriptionLineAction,
+  updatePrescriptionLineAction,
 } from "@/features/prescriptions/actions";
 import { requireCapability } from "@/lib/auth/context";
 import { prisma } from "@/lib/db";
@@ -53,6 +54,32 @@ export default async function PrescriptionPage({
                     <button className="rounded-md border border-rose-200 px-2 py-1 text-xs font-semibold text-rose-700">Supprimer</button>
                   </form>
                 </div>
+
+                <details className="mt-4 border-t border-slate-100 pt-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-700">Modifier cette ligne</summary>
+                  <form action={updatePrescriptionLineAction} className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <input type="hidden" name="consultationId" value={id} />
+                    <input type="hidden" name="prescriptionId" value={line.id} />
+                    <label className="block text-xs font-medium text-slate-600 sm:col-span-2">Médicament
+                      <input required name="medicationName" defaultValue={line.medicationName} maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </label>
+                    <label className="block text-xs font-medium text-slate-600">Posologie
+                      <input required name="dosage" defaultValue={line.dosage} maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </label>
+                    <label className="block text-xs font-medium text-slate-600">Durée
+                      <input required name="duration" defaultValue={line.duration} maxLength={200} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </label>
+                    <label className="block text-xs font-medium text-slate-600 sm:col-span-2">Instructions
+                      <textarea name="instructions" defaultValue={line.instructions ?? ""} maxLength={1000} rows={3} className="mt-1 w-full rounded-lg border border-slate-300 p-3 text-sm" />
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                      <input type="checkbox" name="isGeneric" value="true" defaultChecked={line.isGeneric} /> Médicament générique
+                    </label>
+                    <div className="flex justify-end sm:col-span-2">
+                      <button className="rounded-lg bg-slate-950 px-4 py-2 text-xs font-semibold text-white">Enregistrer les modifications</button>
+                    </div>
+                  </form>
+                </details>
               </article>
             ))}
             {workspace.prescriptions.length === 0 ? <p className="text-sm text-slate-500">Aucune ligne ajoutée.</p> : null}
