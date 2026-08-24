@@ -1,21 +1,16 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { prisma } from "@/lib/db";
 import { clearSession, createSession } from "@/lib/auth/session";
+import { prisma } from "@/lib/db";
+import { authenticateCredentials } from "@/server/services/authentication";
 
 const loginSchema = z.object({
   email: z.string().email().transform((value) => value.trim().toLowerCase()),
   password: z.string().min(8).max(200),
 });
-
-// Valid bcrypt hash used only to keep the password-check path comparable when
-// an account is absent/inactive. It is not a credential for any ClinicOS user.
-const DUMMY_PASSWORD_HASH =
-  "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
 export type LoginState = {
   error?: string;
@@ -34,23 +29,13 @@ export async function loginAction(
     return { error: "Identifiants invalides." };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email },
-    select: {
-      id: true,
-      clinicId: true,
-      role: true,
-      isActive: true,
-      passwordHash: true,
-    },
-  });
-
-  const validPassword = await bcrypt.compare(
+  const user = await authenticateCredentials(
+    prisma,
+    parsed.data.email,
     parsed.data.password,
-    user?.passwordHash ?? DUMMY_PASSWORD_HASH,
   );
 
-  if (!user?.isActive || !validPassword) {
+  if (!user) {
     return { error: "Identifiants invalides." };
   }
 
