@@ -18,6 +18,11 @@ type ReminderSender = (args: {
   payload: unknown;
 }) => Promise<WhatsAppSendResult>;
 
+type ReminderClaim = {
+  id: string;
+  attemptCount: number;
+};
+
 function appointmentDisplayParts(date: Date, timeZone: string) {
   const dateFormatter = new Intl.DateTimeFormat("fr-MA", {
     timeZone,
@@ -36,6 +41,19 @@ function appointmentDisplayParts(date: Date, timeZone: string) {
   };
 }
 
+function previousAttemptCount(payload: Prisma.JsonValue | null): number {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    typeof payload.attemptCount === "number" &&
+    Number.isFinite(payload.attemptCount)
+  ) {
+    return Math.max(1, Math.trunc(payload.attemptCount));
+  }
+  return 1;
+}
+
 async function claimReminderEvent(
   db: PrismaClient,
   input: {
@@ -45,9 +63,9 @@ async function claimReminderEvent(
     templateName: string;
     languageCode: string;
   },
-) {
+): Promise<ReminderClaim | null> {
   try {
-    return await db.whatsAppEvent.create({
+    const created = await db.whatsAppEvent.create({
       data: {
         clinicId: input.clinicId,
         patientId: input.patientId,
@@ -57,19 +75,59 @@ async function claimReminderEvent(
         payload: {
           templateName: input.templateName,
           languageCode: input.languageCode,
+          attemptCount: 1,
         },
       },
       select: { id: true },
     });
+    return { id: created.id, attemptCount: 1 };
   } catch (error) {
     if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== "P2002"
     ) {
-      return null;
+      throw error;
     }
-    throw error;
   }
+
+  const existing = await db.whatsAppEvent.findUnique({
+    where: {
+      clinicId_appointmentId_eventType: {
+        clinicId: input.clinicId,
+        appointmentId: input.appointmentId,
+        eventType: WhatsAppEventType.REMINDER_SENT,
+      },
+    },
+    select: { id: true, status: true, payload: true },
+  });
+
+  if (!existing || existing.status !== WhatsAppStatus.FAILED) {
+    return null;
+  }
+
+  const attemptCount = previousAttemptCount(existing.payload) + 1;
+  const claimed = await db.whatsAppEvent.updateMany({
+    where: {
+      id: existing.id,
+      clinicId: input.clinicId,
+      status: WhatsAppStatus.FAILED,
+    },
+    data: {
+      status: WhatsAppStatus.PENDING,
+      providerMessageId: null,
+      payload: {
+        templateName: input.templateName,
+        languageCode: input.languageCode,
+        attemptCount,
+      },
+    },
+  });
+
+  if (claimed.count !== 1) {
+    return null;
+  }
+
+  return { id: existing.id, attemptCount };
 }
 
 export async function sendDueAppointmentReminders(
@@ -180,6 +238,7 @@ export async function sendDueAppointmentReminders(
             payload: {
               templateName: clinic.whatsappReminderTemplate,
               languageCode: clinic.whatsappLanguageCode,
+              attemptCount: claim.attemptCount,
               errorCode: "SEND_FAILED",
             },
           },
