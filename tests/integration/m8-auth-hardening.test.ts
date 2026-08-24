@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient, Role } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { authenticateCredentials } from "@/server/services/authentication";
+import { authenticateCredentialsCore } from "@/lib/auth/authentication-core";
 
 const db = new PrismaClient();
 
@@ -68,7 +68,7 @@ describe("M8 authentication hardening", () => {
     });
 
     await expect(
-      authenticateCredentials(db, active.email, password),
+      authenticateCredentialsCore(db, active.email, password),
     ).resolves.toEqual({
       id: active.id,
       clinicId: clinic.id,
@@ -76,15 +76,15 @@ describe("M8 authentication hardening", () => {
     });
 
     await expect(
-      authenticateCredentials(db, active.email, "WrongPassword123!"),
+      authenticateCredentialsCore(db, active.email, "WrongPassword123!"),
     ).resolves.toBeNull();
 
     await expect(
-      authenticateCredentials(db, "disabled@m8-auth.test", password),
+      authenticateCredentialsCore(db, "disabled@m8-auth.test", password),
     ).resolves.toBeNull();
 
     await expect(
-      authenticateCredentials(db, "missing@m8-auth.test", password),
+      authenticateCredentialsCore(db, "missing@m8-auth.test", password),
     ).resolves.toBeNull();
   });
 });
