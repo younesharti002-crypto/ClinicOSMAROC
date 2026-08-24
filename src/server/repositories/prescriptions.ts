@@ -118,6 +118,57 @@ export async function addPrescriptionLine(
   });
 }
 
+export async function updatePrescriptionLine(
+  db: PrismaClient,
+  ctx: AuthContext,
+  prescriptionId: string,
+  input: PrescriptionLineInput,
+) {
+  assertCan(ctx.role, "prescription:write");
+
+  const line = await db.prescription.findFirst({
+    where: {
+      id: prescriptionId,
+      clinicId: ctx.clinicId,
+      consultation: {
+        clinicId: ctx.clinicId,
+        ...doctorScope(ctx),
+      },
+    },
+    select: { id: true, consultationId: true },
+  });
+
+  if (!line) {
+    throw new Error("Prescription line not found for this doctor and clinic");
+  }
+
+  await db.$transaction([
+    db.prescription.update({
+      where: { id: line.id },
+      data: input,
+    }),
+    db.auditLog.create({
+      data: {
+        clinicId: ctx.clinicId,
+        actorUserId: ctx.userId,
+        action: "PRESCRIPTION_LINE_UPDATED",
+        entityType: "Prescription",
+        entityId: line.id,
+        metadata: {
+          consultationId: line.consultationId,
+          fieldsUpdated: [
+            "medicationName",
+            "dosage",
+            "duration",
+            "isGeneric",
+            "instructions",
+          ],
+        },
+      },
+    }),
+  ]);
+}
+
 export async function removePrescriptionLine(
   db: PrismaClient,
   ctx: AuthContext,
