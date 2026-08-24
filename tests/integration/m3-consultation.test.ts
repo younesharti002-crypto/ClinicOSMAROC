@@ -12,6 +12,7 @@ import { createAppointment } from "@/server/repositories/appointments";
 import {
   finishConsultation,
   getConsultationWorkspace,
+  saveConsultation,
   startConsultation,
   updatePatientMedicalProfile,
 } from "@/server/repositories/consultations";
@@ -215,6 +216,28 @@ describe("M3 doctor consultation and EMR", () => {
     expect(storedConsultation?.doctorId).toBe(doctorA.id);
   });
 
+  it("saves an active consultation draft without completing the appointment", async () => {
+    const { secretaryCtx, doctorCtx, doctorA, patientA } = await fixture();
+    const appointment = await waitingAppointment(secretaryCtx, patientA.id, doctorA.id);
+    const consultation = await startConsultation(db, doctorCtx, appointment.id);
+
+    await saveConsultation(db, doctorCtx, consultation.id, {
+      symptoms: "Douleur depuis deux jours",
+      diagnosis: "Diagnostic provisoire",
+      clinicalNotes: "Bilan en cours",
+    });
+
+    const [storedAppointment, storedConsultation] = await Promise.all([
+      db.appointment.findUnique({ where: { id: appointment.id } }),
+      db.consultation.findUnique({ where: { id: consultation.id } }),
+    ]);
+
+    expect(storedAppointment?.status).toBe(AppointmentStatus.IN_CONSULTATION);
+    expect(storedConsultation?.symptoms).toBe("Douleur depuis deux jours");
+    expect(storedConsultation?.diagnosis).toBe("Diagnostic provisoire");
+    expect(storedConsultation?.clinicalNotes).toBe("Bilan en cours");
+  });
+
   it("does not let a doctor start another doctor's appointment", async () => {
     const { secretaryCtx, doctorCtx, doctorOther, patientA } = await fixture();
     const appointment = await waitingAppointment(secretaryCtx, patientA.id, doctorOther.id);
@@ -222,6 +245,22 @@ describe("M3 doctor consultation and EMR", () => {
     await expect(
       startConsultation(db, doctorCtx, appointment.id),
     ).rejects.toThrow("Appointment not found for this doctor and clinic");
+  });
+
+  it("does not let another doctor in the same clinic read or modify an owned consultation", async () => {
+    const { secretaryCtx, doctorCtx, doctorOtherCtx, doctorA, patientA } = await fixture();
+    const appointment = await waitingAppointment(secretaryCtx, patientA.id, doctorA.id);
+    const consultation = await startConsultation(db, doctorCtx, appointment.id);
+
+    expect(await getConsultationWorkspace(db, doctorOtherCtx, consultation.id)).toBeNull();
+
+    await expect(
+      saveConsultation(db, doctorOtherCtx, consultation.id, {
+        symptoms: "Unauthorized",
+        diagnosis: "Unauthorized",
+        clinicalNotes: "Unauthorized",
+      }),
+    ).rejects.toThrow("Consultation not found for this doctor and clinic");
   });
 
   it("finishes consultation, stores clinical fields, and completes appointment", async () => {
@@ -259,6 +298,30 @@ describe("M3 doctor consultation and EMR", () => {
         chronicDiseases: null,
       }),
     ).rejects.toThrow("Patient not found in clinic");
+  });
+
+  it("lets the authorized doctor read same-clinic patient history", async () => {
+    const { secretaryCtx, doctorCtx, doctorA, doctorOther, patientA, clinicA } = await fixture();
+
+    await db.consultation.create({
+      data: {
+        clinicId: clinicA.id,
+        patientId: patientA.id,
+        doctorId: doctorOther.id,
+        symptoms: "Ancien symptôme",
+        diagnosis: "Ancien diagnostic",
+        clinicalNotes: "Ancienne note",
+      },
+    });
+
+    const appointment = await waitingAppointment(secretaryCtx, patientA.id, doctorA.id);
+    const consultation = await startConsultation(db, doctorCtx, appointment.id);
+    const workspace = await getConsultationWorkspace(db, doctorCtx, consultation.id);
+
+    expect(workspace).not.toBeNull();
+    expect(workspace?.history).toHaveLength(1);
+    expect(workspace?.history[0]?.diagnosis).toBe("Ancien diagnostic");
+    expect(workspace?.history[0]?.doctor.fullName).toBe("Doctor Other M3");
   });
 
   it("lets the authorized doctor update the patient medical profile", async () => {
